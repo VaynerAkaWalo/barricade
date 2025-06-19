@@ -1,20 +1,20 @@
-package server
+package httpserver
 
 import (
 	"log"
 	"net/http"
 )
 
-type HttpServer struct {
+type Server struct {
 	Addr     string
-	Handlers []HttpRouteHandler
+	Handlers []RouteHandler
 }
 
-type HttpRouteHandler interface {
+type RouteHandler interface {
 	RegisterRoutes(router *http.ServeMux)
 }
 
-func (server *HttpServer) ListenAndServe() error {
+func (server *Server) ListenAndServe() error {
 	router := http.NewServeMux()
 
 	httpServer := &http.Server{
@@ -26,6 +26,6 @@ func (server *HttpServer) ListenAndServe() error {
 		handler.RegisterRoutes(router)
 	}
 
-	log.Println("Starting http server at port " + server.Addr)
+	log.Println("Starting httpserver server at port " + server.Addr)
 	return httpServer.ListenAndServe()
 }

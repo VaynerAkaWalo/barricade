@@ -3,7 +3,7 @@ package main
 import (
 	handlers "barricade/internal/adapters/http"
 	"barricade/internal/domain/healthcheck"
-	"barricade/internal/infrastructure/server"
+	"barricade/internal/infrastructure/httpserver"
 	"log"
 )
 
@@ -12,9 +12,9 @@ func main() {
 		Service: &healthcheck.Service{},
 	}
 
-	httpServer := &server.HttpServer{
+	httpServer := &httpserver.Server{
 		Addr:     ":8000",
-		Handlers: []server.HttpRouteHandler{&healthHandler},
+		Handlers: []httpserver.RouteHandler{&healthHandler},
 	}
 
 	log.Fatal(httpServer.ListenAndServe())
