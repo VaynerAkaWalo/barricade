@@ -1,7 +1,21 @@
 package main
 
-import "fmt"
+import (
+	handlers "barricade/internal/adapters/http"
+	"barricade/internal/domain/healthcheck"
+	"barricade/internal/infrastructure/server"
+	"log"
+)
 
 func main() {
-	fmt.Println("Hello world")
+	healthHandler := handlers.HealthHttpHandler{
+		Service: &healthcheck.Service{},
+	}
+
+	httpServer := &server.HttpServer{
+		Addr:     ":8000",
+		Handlers: []server.HttpRouteHandler{&healthHandler},
+	}
+
+	log.Fatal(httpServer.ListenAndServe())
 }
