@@ -16,6 +16,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"log"
 	"testing"
+	"time"
 )
 
 const (
@@ -58,23 +59,25 @@ func setupModule(t *testing.T) *identityModule {
 		o.BaseEndpoint = aws.String("http://" + host)
 	})
 
-	_, err = client.CreateTable(ctx, &dynamodb.CreateTableInput{
-		TableName: aws.String("test_identity_table"),
-		KeySchema: []types.KeySchemaElement{
-			{
-				AttributeName: aws.String("id"),
-				KeyType:       types.KeyTypeHash,
+	assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		_, err = client.CreateTable(ctx, &dynamodb.CreateTableInput{
+			TableName: aws.String("test_identity_table"),
+			KeySchema: []types.KeySchemaElement{
+				{
+					AttributeName: aws.String("id"),
+					KeyType:       types.KeyTypeHash,
+				},
 			},
-		},
-		AttributeDefinitions: []types.AttributeDefinition{
-			{
-				AttributeName: aws.String("id"),
-				AttributeType: types.ScalarAttributeTypeS,
+			AttributeDefinitions: []types.AttributeDefinition{
+				{
+					AttributeName: aws.String("id"),
+					AttributeType: types.ScalarAttributeTypeS,
+				},
 			},
-		},
-		BillingMode: types.BillingModePayPerRequest,
-	})
-	assert.NoError(t, err)
+			BillingMode: types.BillingModePayPerRequest,
+		})
+		assert.NoError(c, err, "waiting for table creation")
+	}, 30*time.Second, 1*time.Second, "Failed to create table after retries")
 
 	ddbRepository := dynamodbadapters.IdentityRepository{
 		Client: client,
