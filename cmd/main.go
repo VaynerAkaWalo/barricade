@@ -5,15 +5,20 @@ import (
 	handlers "barricade/internal/adapters/http"
 	"barricade/internal/domain/healthcheck"
 	"barricade/internal/domain/identity"
-	"barricade/internal/infrastructure/httpserver"
+	"barricade/internal/infrastructure/htp"
+	"barricade/internal/infrastructure/logging"
 	"context"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"log"
+	"log/slog"
 	"os"
 )
 
 func main() {
+	handler := logging.ContextHandler{Handler: slog.NewJSONHandler(os.Stdout, nil)}
+	slog.SetDefault(slog.New(handler))
+
 	healthHandler := handlers.HealthHttpHandler{
 		Service: &healthcheck.Service{},
 	}
@@ -31,9 +36,9 @@ func main() {
 		},
 	}
 
-	httpServer := &httpserver.Server{
+	httpServer := &htp.Server{
 		Addr:     ":8000",
-		Handlers: []httpserver.RouteHandler{&healthHandler, &identityHandler},
+		Handlers: []htp.RouteHandler{&healthHandler, &identityHandler},
 	}
 
 	log.Fatal(httpServer.ListenAndServe())

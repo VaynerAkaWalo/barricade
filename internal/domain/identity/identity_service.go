@@ -1,11 +1,12 @@
 package identity
 
 import (
+	"barricade/internal/infrastructure/htp"
 	"barricade/pkg/uuid"
 	"context"
-	"fmt"
 	"golang.org/x/crypto/bcrypt"
 	"log/slog"
+	"net/http"
 	"time"
 )
 
@@ -20,7 +21,7 @@ type Service struct {
 
 func (s *Service) Register(ctx context.Context, name string, secret string) (*Identity, error) {
 	if name == "" || secret == "" {
-		return nil, fmt.Errorf("name and secret cannot be null or empty")
+		return nil, htp.NewError("name and secret cannot be null or empty", http.StatusBadRequest)
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(secret), 14)
@@ -38,6 +39,7 @@ func (s *Service) Register(ctx context.Context, name string, secret string) (*Id
 	err = s.Repo.Save(ctx, identity)
 	if err != nil {
 		slog.ErrorContext(ctx, err.Error())
+		return nil, err
 	}
 
 	return identity, nil
