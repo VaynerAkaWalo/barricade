@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"barricade/internal/domain/identity"
-	"barricade/internal/infrastructure/httpserver"
+	"barricade/internal/infrastructure/htp"
 	"encoding/json"
 	"net/http"
 )
@@ -24,20 +24,20 @@ type IdentityHttpHandler struct {
 }
 
 func (handler *IdentityHttpHandler) RegisterRoutes(router *http.ServeMux) {
-	router.HandleFunc("/register", handler.Register)
+	router.Handle("/register", htp.HttpHandler(handler.Register))
 }
 
-func (handler *IdentityHttpHandler) Register(w http.ResponseWriter, r *http.Request) {
+func (handler *IdentityHttpHandler) Register(w http.ResponseWriter, r *http.Request) error {
 	var request registerRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		httpserver.WriteError(w, http.StatusBadRequest, "body does not satisfy required schema")
+		return htp.NewError("request does not satisfy required schema", http.StatusBadRequest)
 	}
 
 	entity, err := handler.Service.Register(r.Context(), request.Name, request.Secret)
 	if err != nil {
-		httpserver.WriteError(w, http.StatusInternalServerError, "unable to create identity with specified attibutes")
+		return htp.NewError("unable to create identity with specified attributes", http.StatusInternalServerError)
 	}
 
 	dto := IdentityResponse{
@@ -47,5 +47,5 @@ func (handler *IdentityHttpHandler) Register(w http.ResponseWriter, r *http.Requ
 		CreatedAt: entity.CreatedAt,
 	}
 
-	httpserver.WriteResponse(w, http.StatusCreated, dto)
+	return htp.WriteResponse(w, http.StatusCreated, dto)
 }

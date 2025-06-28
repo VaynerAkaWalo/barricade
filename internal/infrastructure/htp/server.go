@@ -1,4 +1,4 @@
-package httpserver
+package htp
 
 import (
 	"log"
@@ -26,6 +26,6 @@ func (server *Server) ListenAndServe() error {
 		handler.RegisterRoutes(router)
 	}
 
-	log.Println("Starting httpserver server at port " + server.Addr)
+	log.Println("Starting http server at port " + server.Addr)
 	return httpServer.ListenAndServe()
 }
