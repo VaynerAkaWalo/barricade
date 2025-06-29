@@ -3,7 +3,6 @@ package main
 import (
 	dynamodbadapters "barricade/internal/adapters/dynamodb"
 	handlers "barricade/internal/adapters/http"
-	"barricade/internal/domain/healthcheck"
 	"barricade/internal/domain/identity"
 	"barricade/internal/infrastructure/htp"
 	"barricade/internal/infrastructure/logging"
@@ -19,9 +18,7 @@ func main() {
 	handler := logging.ContextHandler{Handler: slog.NewJSONHandler(os.Stdout, nil)}
 	slog.SetDefault(slog.New(handler))
 
-	healthHandler := handlers.HealthHttpHandler{
-		Service: &healthcheck.Service{},
-	}
+	healthHandler := handlers.HealthHttpHandler{}
 
 	cp := credentials.NewStaticCredentialsProvider(os.Getenv("DDB_ACCESS_KEY"), os.Getenv("DDB_ACCESS_SECRET_KEY"), "")
 

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"barricade/internal/domain/healthcheck"
 	"barricade/internal/infrastructure/htp"
 	"net/http"
 )
@@ -11,7 +10,6 @@ type HealthResponse struct {
 }
 
 type HealthHttpHandler struct {
-	Service *healthcheck.Service
 }
 
 func (handler *HealthHttpHandler) RegisterRoutes(router *http.ServeMux) {
@@ -19,10 +17,8 @@ func (handler *HealthHttpHandler) RegisterRoutes(router *http.ServeMux) {
 }
 
 func (handler *HealthHttpHandler) Get(w http.ResponseWriter, r *http.Request) error {
-	serviceHealth := handler.Service.IsSystemHealthy()
-
 	dto := HealthResponse{
-		Status: serviceHealth.Status,
+		Status: "ok",
 	}
 
 	return htp.WriteResponse(w, http.StatusOK, dto)
