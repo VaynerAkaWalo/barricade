@@ -24,7 +24,7 @@ type IdentityHttpHandler struct {
 }
 
 func (handler *IdentityHttpHandler) RegisterRoutes(router *http.ServeMux) {
-	router.Handle("/register", htp.HttpHandler(handler.Register))
+	router.Handle("POST /v1/register", htp.HttpHandler(handler.Register))
 }
 
 func (handler *IdentityHttpHandler) Register(w http.ResponseWriter, r *http.Request) error {
