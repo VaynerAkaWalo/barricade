@@ -2,9 +2,9 @@ package dynamodbadapters
 
 import (
 	"barricade/internal/domain/authentication"
-	"barricade/internal/infrastructure/htp"
 	"context"
 	"fmt"
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
@@ -38,7 +38,7 @@ func (r *AuthNIdentityRepository) FindByName(ctx context.Context, name string) (
 	keyEx := expression.Key("name").Equal(expression.Value(name))
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
-		return nil, htp.NewError("cannot construct key", http.StatusInternalServerError)
+		return nil, xhttp.NewError("cannot construct key", http.StatusInternalServerError)
 	}
 
 	output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
@@ -50,22 +50,22 @@ func (r *AuthNIdentityRepository) FindByName(ctx context.Context, name string) (
 	})
 	if err != nil {
 		slog.ErrorContext(ctx, err.Error())
-		return nil, htp.NewError("error occurred while looking for identity", http.StatusInternalServerError)
+		return nil, xhttp.NewError("error occurred while looking for identity", http.StatusInternalServerError)
 	}
 
 	if len(output.Items) == 0 {
-		return nil, htp.NewError("identity not found", http.StatusNotFound)
+		return nil, xhttp.NewError("identity not found", http.StatusNotFound)
 	}
 
 	if len(output.Items) > 1 {
 		slog.ErrorContext(ctx, fmt.Sprintf("found %d identities with name %s", len(output.Items), name))
-		return nil, htp.NewError("duplicated name", http.StatusConflict)
+		return nil, xhttp.NewError("duplicated name", http.StatusConflict)
 	}
 
 	var entity authNIdentityAdapter
 	err = attributevalue.UnmarshalMap(output.Items[0], &entity)
 	if err != nil {
-		return nil, htp.NewError("error while serializing query result", http.StatusInternalServerError)
+		return nil, xhttp.NewError("error while serializing query result", http.StatusInternalServerError)
 	}
 
 	return &authentication.Identity{

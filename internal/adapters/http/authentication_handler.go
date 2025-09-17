@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"barricade/internal/domain/authentication"
-	"barricade/internal/infrastructure/htp"
 	"encoding/json"
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"net/http"
 )
 
@@ -23,9 +23,9 @@ type AuthenticationHttpHandler struct {
 	Service authentication.SessionService
 }
 
-func (handler *AuthenticationHttpHandler) RegisterRoutes(router *http.ServeMux) {
-	router.Handle("POST /v1/login", htp.HttpHandler(handler.Login))
-	router.Handle("POST /v1/auth/session", htp.HttpHandler(handler.AuthBySession))
+func (handler *AuthenticationHttpHandler) RegisterRoutes(router *xhttp.Router) {
+	router.RegisterHandler("POST /v1/login", handler.Login)
+	router.RegisterHandler("POST /v1/auth/session", handler.AuthBySession)
 }
 
 func (handler *AuthenticationHttpHandler) Login(w http.ResponseWriter, r *http.Request) error {
@@ -33,7 +33,7 @@ func (handler *AuthenticationHttpHandler) Login(w http.ResponseWriter, r *http.R
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		return htp.NewError("request does not satisfy required schema", http.StatusBadRequest)
+		return xhttp.NewError("request does not satisfy required schema", http.StatusBadRequest)
 	}
 
 	session, err := handler.Service.Login(r.Context(), request.Name, request.Secret)
@@ -50,13 +50,13 @@ func (handler *AuthenticationHttpHandler) Login(w http.ResponseWriter, r *http.R
 		Secure:   true,
 	}
 	http.SetCookie(w, &sessionCookie)
-	return htp.WriteResponse(w, http.StatusOK, struct{}{})
+	return xhttp.WriteResponse(w, http.StatusOK, struct{}{})
 }
 
 func (handler *AuthenticationHttpHandler) AuthBySession(w http.ResponseWriter, r *http.Request) error {
 	sessionCookie, err := r.Cookie(SessionCookie)
 	if err != nil {
-		return htp.NewError("missing session in request", http.StatusUnauthorized)
+		return xhttp.NewError("missing session in request", http.StatusUnauthorized)
 	}
 
 	session, err := handler.Service.AuthenticateBySession(r.Context(), authentication.SessionId(sessionCookie.Value))
@@ -69,5 +69,5 @@ func (handler *AuthenticationHttpHandler) AuthBySession(w http.ResponseWriter, r
 		Owner:     string(session.Owner),
 	}
 
-	return htp.WriteResponse(w, http.StatusOK, response)
+	return xhttp.WriteResponse(w, http.StatusOK, response)
 }

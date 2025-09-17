@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"barricade/internal/domain/identity"
-	"barricade/internal/infrastructure/htp"
 	"encoding/json"
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"net/http"
 )
 
@@ -23,8 +23,8 @@ type IdentityHttpHandler struct {
 	Service identity.Service
 }
 
-func (handler *IdentityHttpHandler) RegisterRoutes(router *http.ServeMux) {
-	router.Handle("POST /v1/register", htp.HttpHandler(handler.Register))
+func (handler *IdentityHttpHandler) RegisterRoutes(router *xhttp.Router) {
+	router.RegisterHandler("POST /v1/register", handler.Register)
 }
 
 func (handler *IdentityHttpHandler) Register(w http.ResponseWriter, r *http.Request) error {
@@ -32,12 +32,12 @@ func (handler *IdentityHttpHandler) Register(w http.ResponseWriter, r *http.Requ
 
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		return htp.NewError("request does not satisfy required schema", http.StatusBadRequest)
+		return xhttp.NewError("request does not satisfy required schema", http.StatusBadRequest)
 	}
 
 	entity, err := handler.Service.Register(r.Context(), request.Name, request.Secret)
 	if err != nil {
-		return htp.NewError("unable to create identity with specified attributes", http.StatusInternalServerError)
+		return xhttp.NewError("unable to create identity with specified attributes", http.StatusInternalServerError)
 	}
 
 	dto := IdentityResponse{
@@ -47,5 +47,5 @@ func (handler *IdentityHttpHandler) Register(w http.ResponseWriter, r *http.Requ
 		CreatedAt: entity.CreatedAt,
 	}
 
-	return htp.WriteResponse(w, http.StatusCreated, dto)
+	return xhttp.WriteResponse(w, http.StatusCreated, dto)
 }

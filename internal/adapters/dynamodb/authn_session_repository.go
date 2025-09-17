@@ -2,9 +2,9 @@ package dynamodbadapters
 
 import (
 	"barricade/internal/domain/authentication"
-	"barricade/internal/infrastructure/htp"
 	"context"
 	"fmt"
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
@@ -73,7 +73,7 @@ func (r *SessionRepository) FindById(ctx context.Context, id authentication.Sess
 	}
 
 	if len(output.Item) == 0 {
-		return nil, htp.NewError("session not found", http.StatusNotFound)
+		return nil, xhttp.NewError("session not found", http.StatusNotFound)
 	}
 
 	var item dbSessionAdapter
@@ -94,7 +94,7 @@ func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId authenti
 	keyEx := expression.Key("secondary-lookup").Equal(expression.Value(ownerId))
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
-		return nil, htp.NewError("cannot construct key", http.StatusInternalServerError)
+		return nil, xhttp.NewError("cannot construct key", http.StatusInternalServerError)
 	}
 
 	output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
@@ -107,11 +107,11 @@ func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId authenti
 
 	if err != nil {
 		slog.ErrorContext(ctx, err.Error())
-		return nil, htp.NewError("error while looking for session", http.StatusInternalServerError)
+		return nil, xhttp.NewError("error while looking for session", http.StatusInternalServerError)
 	}
 
 	if len(output.Items) == 0 {
-		return nil, htp.NewError("session not found", http.StatusNotFound)
+		return nil, xhttp.NewError("session not found", http.StatusNotFound)
 	}
 
 	if len(output.Items) > 1 {
@@ -121,7 +121,7 @@ func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId authenti
 	var session dbSessionAdapter
 	err = attributevalue.UnmarshalMap(output.Items[0], &session)
 	if err != nil {
-		return nil, htp.NewError("db result does not satisfy required schema", http.StatusInternalServerError)
+		return nil, xhttp.NewError("db result does not satisfy required schema", http.StatusInternalServerError)
 	}
 
 	return &authentication.Session{
