@@ -1,8 +1,8 @@
 package authentication
 
 import (
-	"barricade/internal/infrastructure/htp"
 	"barricade/pkg/uuid"
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"net/http"
 	"time"
 )
@@ -18,7 +18,7 @@ type Session struct {
 
 func NewSession(owner IdentityId) (*Session, error) {
 	if owner == "" {
-		return nil, htp.NewError("session owner is required", http.StatusBadRequest)
+		return nil, xhttp.NewError("session owner is required", http.StatusBadRequest)
 	}
 
 	createdAt := time.Now()

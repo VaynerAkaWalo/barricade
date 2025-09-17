@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"barricade/internal/infrastructure/htp"
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"net/http"
 )
 
@@ -12,8 +12,8 @@ type HealthResponse struct {
 type HealthHttpHandler struct {
 }
 
-func (handler *HealthHttpHandler) RegisterRoutes(router *http.ServeMux) {
-	router.Handle("/health", htp.HttpHandler(handler.Get))
+func (handler *HealthHttpHandler) RegisterRoutes(router *xhttp.Router) {
+	router.RegisterHandler("/health", handler.Get)
 }
 
 func (handler *HealthHttpHandler) Get(w http.ResponseWriter, r *http.Request) error {
@@ -21,5 +21,5 @@ func (handler *HealthHttpHandler) Get(w http.ResponseWriter, r *http.Request) er
 		Status: "ok",
 	}
 
-	return htp.WriteResponse(w, http.StatusOK, dto)
+	return xhttp.WriteResponse(w, http.StatusOK, dto)
 }

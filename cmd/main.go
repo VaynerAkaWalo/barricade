@@ -5,9 +5,9 @@ import (
 	handlers "barricade/internal/adapters/http"
 	"barricade/internal/domain/authentication"
 	"barricade/internal/domain/identity"
-	"barricade/internal/infrastructure/htp"
-	"barricade/internal/infrastructure/logging"
 	"context"
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
+	"github.com/VaynerAkaWalo/go-toolkit/xlog"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"log"
@@ -16,8 +16,7 @@ import (
 )
 
 func main() {
-	handler := logging.ContextHandler{Handler: slog.NewJSONHandler(os.Stdout, nil)}
-	slog.SetDefault(slog.New(handler))
+	slog.SetDefault(slog.New(xlog.NewPreConfiguredHandler()))
 
 	cp := credentials.NewStaticCredentialsProvider(os.Getenv("DDB_ACCESS_KEY"), os.Getenv("DDB_ACCESS_SECRET_KEY"), "")
 
@@ -39,10 +38,10 @@ func main() {
 		},
 	}
 
-	httpServer := &htp.Server{
-		Addr:     ":8000",
-		Handlers: []htp.RouteHandler{&handlers.HealthHttpHandler{}, &identityHandler, &authNHandler},
+	httpServer := xhttp.Server{
+		Addr:     ":8080",
+		Handlers: []xhttp.RouteHandler{&identityHandler, &authNHandler, &handlers.HealthHttpHandler{}},
 	}
 
-	log.Fatal(httpServer.ListenAndServe())
+	slog.Error(httpServer.ListenAndServe().Error())
 }
