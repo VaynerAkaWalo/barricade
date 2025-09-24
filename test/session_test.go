@@ -166,10 +166,10 @@ func TestLoginHappyPath(t *testing.T) {
 func TestAuthenticateBySessionInvalidSessionId(t *testing.T) {
 	module := setupSessionModule(t)
 
-	_, err := module.sessionService.AuthenticateBySession(context.Background(), "")
+	_, err := module.sessionService.GetIdentityBySession(context.Background(), "")
 	assert.ErrorContains(t, err, "session id cannot be null or empty")
 
-	_, err = module.sessionService.AuthenticateBySession(context.Background(), "unknown session")
+	_, err = module.sessionService.GetIdentityBySession(context.Background(), "unknown session")
 	assert.ErrorContains(t, err, "session expired")
 }
 
@@ -182,9 +182,8 @@ func TestAuthenticateBySessionHappyPath(t *testing.T) {
 	existingSession, err := module.sessionService.Login(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
-	session, err := module.sessionService.AuthenticateBySession(context.Background(), existingSession.Id)
+	sessionOwner, err := module.sessionService.GetIdentityBySession(context.Background(), existingSession.Id)
 	assert.NoError(t, err)
 
-	assert.Equal(t, existingSession.Id, session.Id)
-	assert.Equal(t, string(ident.Id), string(session.Owner))
+	assert.Equal(t, string(ident.Id), string(sessionOwner.Id))
 }

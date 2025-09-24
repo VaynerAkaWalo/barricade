@@ -14,9 +14,9 @@ type loginRequest struct {
 	Secret string `json:"secret"`
 }
 
-type sessionResponse struct {
-	SessionID string `json:"sessionID"`
-	Owner     string `json:"owner"`
+type whoAmIResponse struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type AuthenticationHttpHandler struct {
@@ -24,11 +24,11 @@ type AuthenticationHttpHandler struct {
 }
 
 func (handler *AuthenticationHttpHandler) RegisterRoutes(router *xhttp.Router) {
-	router.RegisterHandler("POST /v1/login", handler.Login)
-	router.RegisterHandler("POST /v1/auth/session", handler.AuthBySession)
+	router.RegisterHandler("POST /v1/login", handler.login)
+	router.RegisterHandler("GET /v1/whoami", handler.whoAmI)
 }
 
-func (handler *AuthenticationHttpHandler) Login(w http.ResponseWriter, r *http.Request) error {
+func (handler *AuthenticationHttpHandler) login(w http.ResponseWriter, r *http.Request) error {
 	var request loginRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -50,23 +50,23 @@ func (handler *AuthenticationHttpHandler) Login(w http.ResponseWriter, r *http.R
 		Secure:   true,
 	}
 	http.SetCookie(w, &sessionCookie)
-	return xhttp.WriteResponse(w, http.StatusOK, struct{}{})
+	return xhttp.WriteResponse(w, http.StatusNoContent, struct{}{})
 }
 
-func (handler *AuthenticationHttpHandler) AuthBySession(w http.ResponseWriter, r *http.Request) error {
+func (handler *AuthenticationHttpHandler) whoAmI(w http.ResponseWriter, r *http.Request) error {
 	sessionCookie, err := r.Cookie(SessionCookie)
 	if err != nil {
 		return xhttp.NewError("missing session in request", http.StatusUnauthorized)
 	}
 
-	session, err := handler.Service.AuthenticateBySession(r.Context(), authentication.SessionId(sessionCookie.Value))
+	identity, err := handler.Service.GetIdentityBySession(r.Context(), authentication.SessionId(sessionCookie.Value))
 	if err != nil {
 		return err
 	}
 
-	response := sessionResponse{
-		SessionID: string(session.Id),
-		Owner:     string(session.Owner),
+	response := whoAmIResponse{
+		Id:   string(identity.Id),
+		Name: identity.Name,
 	}
 
 	return xhttp.WriteResponse(w, http.StatusOK, response)
