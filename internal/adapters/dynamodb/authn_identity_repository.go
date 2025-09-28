@@ -2,6 +2,7 @@ package dynamodbadapters
 
 import (
 	"barricade/internal/domain/authentication"
+	"barricade/internal/domain/identity"
 	"context"
 	"fmt"
 	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
@@ -73,4 +74,31 @@ func (r *AuthNIdentityRepository) FindByName(ctx context.Context, name string) (
 		Name:       entity.Name,
 		SecretHash: entity.SecretHash,
 	}, nil
+}
+
+func (r *AuthNIdentityRepository) FindById(ctx context.Context, id authentication.IdentityId) (*authentication.Identity, error) {
+	output, err := r.Client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName:      r.Table,
+		ConsistentRead: aws.Bool(false),
+		Key:            key(identity.Id(id)),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	var dbEntity identityDDB
+
+	err = attributevalue.UnmarshalMap(output.Item, &dbEntity)
+	if err != nil {
+		return nil, err
+	}
+
+	entity := &authentication.Identity{
+		Id:         id,
+		Name:       dbEntity.Name,
+		SecretHash: dbEntity.SecretHash,
+	}
+
+	return entity, nil
 }

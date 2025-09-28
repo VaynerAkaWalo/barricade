@@ -15,6 +15,7 @@ type SessionRepository interface {
 
 type IdentityRepository interface {
 	FindByName(context.Context, string) (*Identity, error)
+	FindById(context.Context, IdentityId) (*Identity, error)
 }
 
 type SessionService struct {
@@ -22,7 +23,7 @@ type SessionService struct {
 	IdentityStore IdentityRepository
 }
 
-func (s *SessionService) AuthenticateBySession(ctx context.Context, sessionId SessionId) (*Session, error) {
+func (s *SessionService) GetIdentityBySession(ctx context.Context, sessionId SessionId) (*Identity, error) {
 	if sessionId == "" {
 		return nil, xhttp.NewError("session id cannot be null or empty", http.StatusBadRequest)
 	}
@@ -32,7 +33,12 @@ func (s *SessionService) AuthenticateBySession(ctx context.Context, sessionId Se
 		return nil, xhttp.NewError("session expired", http.StatusForbidden)
 	}
 
-	return session, err
+	identity, err := s.IdentityStore.FindById(ctx, session.Owner)
+	if err != nil {
+		return nil, xhttp.NewError("identity for session not found", http.StatusForbidden)
+	}
+
+	return identity, nil
 }
 
 func (s *SessionService) Login(ctx context.Context, name string, secret string) (*Session, error) {

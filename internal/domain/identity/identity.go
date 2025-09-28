@@ -1,8 +1,8 @@
 package identity
 
 import (
-	"barricade/pkg/uuid"
 	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
+	"github.com/VaynerAkaWalo/go-toolkit/xuuid"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"time"
@@ -31,7 +31,7 @@ func New(name string, secret string) (*Identity, error) {
 	createdAt := time.Now().UnixMilli()
 
 	return &Identity{
-		Id:         Id("ID_" + uuid.TrimmedUUID(16)),
+		Id:         Id(xuuid.HumanReadableID()),
 		Name:       name,
 		SecretHash: hash,
 		CreatedAt:  createdAt,
