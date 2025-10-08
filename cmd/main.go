@@ -15,6 +15,10 @@ import (
 	"os"
 )
 
+const (
+	DomainEnv = "DOMAIN"
+)
+
 func main() {
 	slog.SetDefault(slog.New(xlog.NewPreConfiguredHandler()))
 
@@ -36,6 +40,7 @@ func main() {
 			SessionStore:  dynamodbadapters.NewSessionRepository(awsCfg),
 			IdentityStore: dynamodbadapters.NewAuthNIdentityRepository(awsCfg),
 		},
+		Domain: os.Getenv(DomainEnv),
 	}
 
 	httpServer := xhttp.Server{
