@@ -3,7 +3,6 @@ package authentication
 import (
 	"context"
 	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
-	"log/slog"
 	"net/http"
 )
 
@@ -59,7 +58,6 @@ func (s *SessionService) Login(ctx context.Context, name string, secret string) 
 	if err == nil {
 		return session, nil
 	}
-	slog.ErrorContext(ctx, err.Error())
 
 	session, err = NewSession(identity.Id)
 	if err != nil {

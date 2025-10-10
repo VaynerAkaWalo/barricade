@@ -4,6 +4,7 @@ import (
 	"barricade/internal/domain/authentication"
 	"encoding/json"
 	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
+	"log/slog"
 	"net/http"
 )
 
@@ -52,15 +53,10 @@ func (handler *AuthenticationHttpHandler) login(w http.ResponseWriter, r *http.R
 		Secure:   true,
 	}
 	http.SetCookie(w, &sessionCookie)
-	return xhttp.WriteResponse(w, http.StatusNoContent, "")
+	return xhttp.WriteResponse(w, http.StatusOK, "")
 }
 
 func (handler *AuthenticationHttpHandler) logout(w http.ResponseWriter, r *http.Request) error {
-	_, err := r.Cookie(SessionCookie)
-	if err != nil {
-		return xhttp.WriteResponse(w, http.StatusOK, struct{}{})
-	}
-
 	cookie := http.Cookie{
 		Name:     SessionCookie,
 		Value:    "",
@@ -75,12 +71,14 @@ func (handler *AuthenticationHttpHandler) logout(w http.ResponseWriter, r *http.
 }
 
 func (handler *AuthenticationHttpHandler) whoAmI(w http.ResponseWriter, r *http.Request) error {
-	sessionCookie, err := r.Cookie(SessionCookie)
-	if err != nil {
-		return xhttp.NewError("missing session in request", http.StatusUnauthorized)
+	ctx := r.Context()
+	identityId, ok := ctx.Value(xhttp.UserId).(string)
+	if !ok {
+		slog.ErrorContext(ctx, "error while parsing identity ID from context")
+		return xhttp.NewError("internal server error", http.StatusInternalServerError)
 	}
 
-	identity, err := handler.Service.GetIdentityBySession(r.Context(), authentication.SessionId(sessionCookie.Value))
+	identity, err := handler.Service.IdentityStore.FindById(ctx, authentication.IdentityId(identityId))
 	if err != nil {
 		return err
 	}
