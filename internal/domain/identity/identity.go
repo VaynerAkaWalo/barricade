@@ -31,7 +31,7 @@ func New(name string, secret string) (*Identity, error) {
 	createdAt := time.Now().UnixMilli()
 
 	return &Identity{
-		Id:         Id(xuuid.HumanReadableID()),
+		Id:         Id(xuuid.Base32UUID()),
 		Name:       name,
 		SecretHash: hash,
 		CreatedAt:  createdAt,
