@@ -11,19 +11,27 @@ import (
 	"github.com/VaynerAkaWalo/go-toolkit/xlog"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/caarlos0/env/v11"
 	"log"
 	"log/slog"
-	"os"
 )
 
-const (
-	DomainEnv = "DOMAIN"
-)
+type appConfig struct {
+	Domain       string `env:"DOMAIN"`
+	SessionTime  int    `env:"SESSION_TIME" envDefault:"7200"`
+	AwsAccessKey string `env:"DDB_ACCESS_KEY"`
+	AwsSecretKey string `env:"DDB_ACCESS_SECRET_KEY"`
+}
 
 func main() {
 	slog.SetDefault(slog.New(xlog.NewPreConfiguredHandler()))
 
-	cp := credentials.NewStaticCredentialsProvider(os.Getenv("DDB_ACCESS_KEY"), os.Getenv("DDB_ACCESS_SECRET_KEY"), "")
+	cfg, err := env.ParseAs[appConfig]()
+	if err != nil {
+		log.Fatal("unable to load env config")
+	}
+
+	cp := credentials.NewStaticCredentialsProvider(cfg.AwsAccessKey, cfg.AwsSecretKey, "")
 
 	awsCfg, err := config.LoadDefaultConfig(context.TODO(), config.WithCredentialsProvider(cp), config.WithRegion("eu-north-1"))
 	if err != nil {
@@ -42,8 +50,9 @@ func main() {
 	}
 
 	authNHandler := handlers.AuthenticationHttpHandler{
-		Service: sessionService,
-		Domain:  os.Getenv(DomainEnv),
+		Service:     sessionService,
+		Domain:      cfg.Domain,
+		SessionTime: cfg.SessionTime,
 	}
 
 	authenticator := xhttp.NewAuthenticator(

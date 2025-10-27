@@ -21,8 +21,9 @@ type whoAmIResponse struct {
 }
 
 type AuthenticationHttpHandler struct {
-	Service authentication.SessionService
-	Domain  string
+	Service     authentication.SessionService
+	Domain      string
+	SessionTime int
 }
 
 func (handler *AuthenticationHttpHandler) RegisterRoutes(router *xhttp.Router) {
@@ -48,7 +49,7 @@ func (handler *AuthenticationHttpHandler) login(w http.ResponseWriter, r *http.R
 		Name:     SessionCookie,
 		Value:    string(session.Id),
 		Domain:   "." + handler.Domain,
-		MaxAge:   300,
+		MaxAge:   handler.SessionTime,
 		HttpOnly: true,
 		Secure:   true,
 	}
