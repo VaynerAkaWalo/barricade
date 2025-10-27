@@ -1,11 +1,11 @@
-name: Docker Build and Push
+name: cd
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build-and-push:
+  cd:
     runs-on: ubuntu-latest
     permissions:
       contents: read
