@@ -1,19 +1,20 @@
 package main
 
 import (
-	dynamodbadapters "barricade/internal/adapters/dynamodb"
-	handlers "barricade/internal/adapters/http"
-	"barricade/internal/domain/authentication"
-	"barricade/internal/domain/identity"
+	"barricade/internal/authentication"
+	"barricade/internal/db"
+	"barricade/internal/identity"
+	"barricade/internal/infrastructure"
 	"barricade/internal/infrastructure/ihttp"
 	"context"
+	"log"
+	"log/slog"
+
 	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"github.com/VaynerAkaWalo/go-toolkit/xlog"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/caarlos0/env/v11"
-	"log"
-	"log/slog"
 )
 
 type appConfig struct {
@@ -38,32 +39,39 @@ func main() {
 		log.Fatal(err)
 	}
 
-	identityHandler := handlers.IdentityHttpHandler{
+	identityRepository := db.NewIdentityRepository(awsCfg)
+
+	identityHandler := identity.HttpHandler{
 		Service: identity.Service{
-			Repo: dynamodbadapters.NewIdentityRepository(awsCfg),
+			Repo: identityRepository,
 		},
 	}
 
 	sessionService := authentication.SessionService{
-		SessionStore:  dynamodbadapters.NewSessionRepository(awsCfg),
-		IdentityStore: dynamodbadapters.NewAuthNIdentityRepository(awsCfg),
+		SessionStore:  db.NewSessionRepository(awsCfg),
+		IdentityStore: identityRepository,
 	}
 
-	authNHandler := handlers.AuthenticationHttpHandler{
+	authNHandler := authentication.HttpHandler{
 		Service:     sessionService,
 		Domain:      cfg.Domain,
 		SessionTime: cfg.SessionTime,
 	}
 
+	authNService := authentication.Service{
+		IdentityStore: identityRepository,
+		SessionStore:  sessionService.SessionStore,
+	}
+
 	authenticator := xhttp.NewAuthenticator(
 		ihttp.BarricadeAuthenticationProvider{
-			SessionService: sessionService,
+			AuthenticationService: authNService,
 		},
 		[]string{"GET /health", "POST /v1/login", "POST /v1/register"}...)
 
 	httpServer := xhttp.Server{
 		Addr:     ":8080",
-		Handlers: []xhttp.RouteHandler{&identityHandler, &authNHandler, &handlers.HealthHttpHandler{}},
+		Handlers: []xhttp.RouteHandler{&identityHandler, &authNHandler, &infrastructure.HealthHttpHandler{}},
 		AuthN:    authenticator,
 	}
 

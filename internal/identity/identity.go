@@ -1,11 +1,12 @@
 package identity
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"github.com/VaynerAkaWalo/go-toolkit/xuuid"
 	"golang.org/x/crypto/bcrypt"
-	"net/http"
-	"time"
 )
 
 type Id string
@@ -37,4 +38,8 @@ func New(name string, secret string) (*Identity, error) {
 		CreatedAt:  createdAt,
 		UpdatedAt:  createdAt,
 	}, nil
+}
+
+func (i *Identity) ValidateSecret(secret string) error {
+	return bcrypt.CompareHashAndPassword(i.SecretHash, []byte(secret))
 }

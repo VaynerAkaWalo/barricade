@@ -1,8 +1,9 @@
-package handlers
+package infrastructure
 
 import (
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"net/http"
+
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 )
 
 type HealthResponse struct {

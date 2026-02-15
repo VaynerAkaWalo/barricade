@@ -1,13 +1,19 @@
-package dynamodbadapters
+package db
 
 import (
-	"barricade/internal/domain/identity"
+	"barricade/internal/identity"
 	"context"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"os"
 )
 
 type identityDDB struct {
@@ -34,14 +40,16 @@ func key(id identity.Id) map[string]types.AttributeValue {
 }
 
 type IdentityRepository struct {
-	Client *dynamodb.Client
-	Table  *string
+	Client    *dynamodb.Client
+	Table     *string
+	NameIndex *string
 }
 
 func NewIdentityRepository(cfg aws.Config) *IdentityRepository {
 	return &IdentityRepository{
-		Client: dynamodb.NewFromConfig(cfg),
-		Table:  aws.String(os.Getenv("IDENTITY_TABLE_NAME")),
+		Client:    dynamodb.NewFromConfig(cfg),
+		Table:     aws.String(os.Getenv("IDENTITY_TABLE_NAME")),
+		NameIndex: aws.String("name-index"),
 	}
 }
 
@@ -90,4 +98,45 @@ func (r *IdentityRepository) FindById(ctx context.Context, id identity.Id) (*ide
 	}
 
 	return entity, nil
+}
+
+func (r *IdentityRepository) FindByName(ctx context.Context, name string) (*identity.Identity, error) {
+	keyEx := expression.Key("name").Equal(expression.Value(name))
+	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
+	if err != nil {
+		return nil, xhttp.NewError("cannot construct key", http.StatusInternalServerError)
+	}
+
+	output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
+		TableName:                 r.Table,
+		IndexName:                 r.NameIndex,
+		KeyConditionExpression:    expr.KeyCondition(),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, err.Error())
+		return nil, xhttp.NewError("error occurred while looking for identity", http.StatusInternalServerError)
+	}
+
+	if len(output.Items) == 0 {
+		return nil, xhttp.NewError("identity not found", http.StatusNotFound)
+	}
+
+	if len(output.Items) > 1 {
+		slog.ErrorContext(ctx, fmt.Sprintf("found %d identities with name %s", len(output.Items), name))
+		return nil, xhttp.NewError("duplicated name", http.StatusConflict)
+	}
+
+	var entity identityDDB
+	err = attributevalue.UnmarshalMap(output.Items[0], &entity)
+	if err != nil {
+		return nil, xhttp.NewError("error while serializing query result", http.StatusInternalServerError)
+	}
+
+	return &identity.Identity{
+		Id:         identity.Id(entity.Id),
+		Name:       entity.Name,
+		SecretHash: entity.SecretHash,
+	}, nil
 }

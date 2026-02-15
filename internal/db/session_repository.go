@@ -1,18 +1,20 @@
-package dynamodbadapters
+package db
 
 import (
-	"barricade/internal/domain/authentication"
+	"barricade/internal/authentication"
+	"barricade/internal/identity"
 	"context"
 	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+
 	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"log/slog"
-	"net/http"
-	"os"
 )
 
 type dbSessionAdapter struct {
@@ -84,13 +86,13 @@ func (r *SessionRepository) FindById(ctx context.Context, id authentication.Sess
 
 	return &authentication.Session{
 		Id:        id,
-		Owner:     authentication.IdentityId(item.Owner),
+		Owner:     identity.Id(item.Owner),
 		CreatedAt: item.CreatedAt,
 		ExpireAt:  item.ExpireAt,
 	}, nil
 }
 
-func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId authentication.IdentityId) (*authentication.Session, error) {
+func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId identity.Id) (*authentication.Session, error) {
 	keyEx := expression.Key("secondary-lookup").Equal(expression.Value(ownerId))
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
@@ -126,7 +128,7 @@ func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId authenti
 
 	return &authentication.Session{
 		Id:        authentication.SessionId(session.Id),
-		Owner:     authentication.IdentityId(session.Owner),
+		Owner:     identity.Id(session.Owner),
 		CreatedAt: session.CreatedAt,
 		ExpireAt:  session.ExpireAt,
 	}, nil

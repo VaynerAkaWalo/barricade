@@ -1,22 +1,24 @@
 package authentication
 
 import (
+	"barricade/internal/identity"
 	"barricade/pkg/uuid"
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"net/http"
 	"time"
+
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 )
 
 type SessionId string
 
 type Session struct {
 	Id        SessionId
-	Owner     IdentityId
+	Owner     identity.Id
 	CreatedAt int64
 	ExpireAt  int64
 }
 
-func NewSession(owner IdentityId) (*Session, error) {
+func NewSession(owner identity.Id) (*Session, error) {
 	if owner == "" {
 		return nil, xhttp.NewError("session owner is required", http.StatusBadRequest)
 	}
