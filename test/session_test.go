@@ -1,20 +1,22 @@
 package test
 
 import (
-	dynamodbadapters "barricade/internal/adapters/dynamodb"
-	"barricade/internal/domain/authentication"
-	"barricade/internal/domain/identity"
+	"barricade/internal/authentication"
+	"barricade/internal/db"
+	"barricade/internal/identity"
 	"context"
+	"testing"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type sessionModule struct {
 	sessionService              authentication.SessionService
 	sessionStore                authentication.SessionRepository
+	authenticationService       authentication.Service
 	authenticationIdentityStore authentication.IdentityRepository
 	identityService             identity.Service
 }
@@ -101,13 +103,13 @@ func setupSessionModule(t *testing.T) *sessionModule {
 
 	client := setupDynamo(t, sessionTable, identityTable)
 
-	authenticationIdentityStore := &dynamodbadapters.AuthNIdentityRepository{
+	identityStore := &db.IdentityRepository{
 		Client:    client,
 		Table:     aws.String("test_identity_table"),
 		NameIndex: aws.String("name-index"),
 	}
 
-	sessionStore := &dynamodbadapters.SessionRepository{
+	sessionStore := &db.SessionRepository{
 		Client:    client,
 		Table:     aws.String("test_session_table"),
 		NameIndex: aws.String("secondary-lookup-index"),
@@ -115,28 +117,34 @@ func setupSessionModule(t *testing.T) *sessionModule {
 
 	sessionService := authentication.SessionService{
 		SessionStore:  sessionStore,
-		IdentityStore: authenticationIdentityStore,
+		IdentityStore: identityStore,
 	}
 
 	identityService := identity.Service{
-		Repo: &dynamodbadapters.IdentityRepository{
+		Repo: &db.IdentityRepository{
 			Client: client,
 			Table:  aws.String("test_identity_table"),
 		},
+	}
+
+	authenticationService := authentication.Service{
+		IdentityStore: identityStore,
+		SessionStore:  sessionStore,
 	}
 
 	return &sessionModule{
 		sessionService:              sessionService,
 		identityService:             identityService,
 		sessionStore:                sessionStore,
-		authenticationIdentityStore: authenticationIdentityStore,
+		authenticationIdentityStore: identityStore,
+		authenticationService:       authenticationService,
 	}
 }
 
 func TestLoginUnknownUser(t *testing.T) {
 	module := setupSessionModule(t)
 
-	_, err := module.sessionService.Login(context.Background(), "unknown name", TEST_SECRET)
+	_, err := module.sessionService.CreateOrGetSessionForCredentials(context.Background(), "unknown name", TEST_SECRET)
 	assert.ErrorContains(t, err, "identity not found")
 }
 
@@ -146,7 +154,7 @@ func TestLoginInvalidPassword(t *testing.T) {
 	_, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
-	_, err = module.sessionService.Login(context.Background(), TEST_NAME, "invalid secret")
+	_, err = module.sessionService.CreateOrGetSessionForCredentials(context.Background(), TEST_NAME, "invalid secret")
 	assert.ErrorContains(t, err, "invalid secret")
 }
 
@@ -156,7 +164,7 @@ func TestLoginHappyPath(t *testing.T) {
 	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
-	session, err := module.sessionService.Login(context.Background(), TEST_NAME, TEST_SECRET)
+	session, err := module.sessionService.CreateOrGetSessionForCredentials(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
 	assert.NotEmpty(t, session.Id)
@@ -166,10 +174,10 @@ func TestLoginHappyPath(t *testing.T) {
 func TestAuthenticateBySessionInvalidSessionId(t *testing.T) {
 	module := setupSessionModule(t)
 
-	_, err := module.sessionService.GetIdentityBySession(context.Background(), "")
+	_, err := module.authenticationService.AuthenticateBySession(context.Background(), "")
 	assert.ErrorContains(t, err, "session id cannot be null or empty")
 
-	_, err = module.sessionService.GetIdentityBySession(context.Background(), "unknown session")
+	_, err = module.authenticationService.AuthenticateBySession(context.Background(), "unknown session")
 	assert.ErrorContains(t, err, "session expired")
 }
 
@@ -179,10 +187,10 @@ func TestAuthenticateBySessionHappyPath(t *testing.T) {
 	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
-	existingSession, err := module.sessionService.Login(context.Background(), TEST_NAME, TEST_SECRET)
+	existingSession, err := module.sessionService.CreateOrGetSessionForCredentials(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
-	sessionOwner, err := module.sessionService.GetIdentityBySession(context.Background(), existingSession.Id)
+	sessionOwner, err := module.authenticationService.AuthenticateBySession(context.Background(), existingSession.Id)
 	assert.NoError(t, err)
 
 	assert.Equal(t, string(ident.Id), string(sessionOwner.Id))

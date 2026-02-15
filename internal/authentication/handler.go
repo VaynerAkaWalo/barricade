@@ -1,11 +1,12 @@
-package handlers
+package authentication
 
 import (
-	"barricade/internal/domain/authentication"
+	"barricade/internal/identity"
 	"encoding/json"
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"log/slog"
 	"net/http"
+
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 )
 
 const SessionCookie = "session_id"
@@ -20,19 +21,19 @@ type whoAmIResponse struct {
 	Name string `json:"name"`
 }
 
-type AuthenticationHttpHandler struct {
-	Service     authentication.SessionService
+type HttpHandler struct {
+	Service     SessionService
 	Domain      string
 	SessionTime int
 }
 
-func (handler *AuthenticationHttpHandler) RegisterRoutes(router *xhttp.Router) {
+func (handler *HttpHandler) RegisterRoutes(router *xhttp.Router) {
 	router.RegisterHandler("POST /v1/login", handler.login)
 	router.RegisterHandler("POST /v1/logout", handler.logout)
 	router.RegisterHandler("GET /v1/whoami", handler.whoAmI)
 }
 
-func (handler *AuthenticationHttpHandler) login(w http.ResponseWriter, r *http.Request) error {
+func (handler *HttpHandler) login(w http.ResponseWriter, r *http.Request) error {
 	var request loginRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -40,7 +41,7 @@ func (handler *AuthenticationHttpHandler) login(w http.ResponseWriter, r *http.R
 		return xhttp.NewError("request does not satisfy required schema", http.StatusBadRequest)
 	}
 
-	session, err := handler.Service.Login(r.Context(), request.Name, request.Secret)
+	session, err := handler.Service.CreateOrGetSessionForCredentials(r.Context(), request.Name, request.Secret)
 	if err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func (handler *AuthenticationHttpHandler) login(w http.ResponseWriter, r *http.R
 	return xhttp.WriteResponse(w, http.StatusOK, "")
 }
 
-func (handler *AuthenticationHttpHandler) logout(w http.ResponseWriter, r *http.Request) error {
+func (handler *HttpHandler) logout(w http.ResponseWriter, r *http.Request) error {
 	cookie := http.Cookie{
 		Name:     SessionCookie,
 		Value:    "",
@@ -71,7 +72,7 @@ func (handler *AuthenticationHttpHandler) logout(w http.ResponseWriter, r *http.
 	return xhttp.WriteResponse(w, http.StatusAccepted, "")
 }
 
-func (handler *AuthenticationHttpHandler) whoAmI(w http.ResponseWriter, r *http.Request) error {
+func (handler *HttpHandler) whoAmI(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	identityId, ok := ctx.Value(xhttp.UserId).(string)
 	if !ok {
@@ -79,7 +80,7 @@ func (handler *AuthenticationHttpHandler) whoAmI(w http.ResponseWriter, r *http.
 		return xhttp.NewError("internal server error", http.StatusInternalServerError)
 	}
 
-	identity, err := handler.Service.IdentityStore.FindById(ctx, authentication.IdentityId(identityId))
+	identity, err := handler.Service.IdentityStore.FindById(ctx, identity.Id(identityId))
 	if err != nil {
 		return err
 	}

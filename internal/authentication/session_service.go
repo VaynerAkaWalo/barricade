@@ -1,20 +1,22 @@
 package authentication
 
 import (
+	"barricade/internal/identity"
 	"context"
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"net/http"
+
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 )
 
 type SessionRepository interface {
 	Save(context.Context, *Session) error
 	FindById(context.Context, SessionId) (*Session, error)
-	FindByIdentity(context.Context, IdentityId) (*Session, error)
+	FindByIdentity(context.Context, identity.Id) (*Session, error)
 }
 
 type IdentityRepository interface {
-	FindByName(context.Context, string) (*Identity, error)
-	FindById(context.Context, IdentityId) (*Identity, error)
+	FindByName(context.Context, string) (*identity.Identity, error)
+	FindById(context.Context, identity.Id) (*identity.Identity, error)
 }
 
 type SessionService struct {
@@ -22,25 +24,7 @@ type SessionService struct {
 	IdentityStore IdentityRepository
 }
 
-func (s *SessionService) GetIdentityBySession(ctx context.Context, sessionId SessionId) (*Identity, error) {
-	if sessionId == "" {
-		return nil, xhttp.NewError("session id cannot be null or empty", http.StatusBadRequest)
-	}
-
-	session, err := s.SessionStore.FindById(ctx, sessionId)
-	if err != nil {
-		return nil, xhttp.NewError("session expired", http.StatusForbidden)
-	}
-
-	identity, err := s.IdentityStore.FindById(ctx, session.Owner)
-	if err != nil {
-		return nil, xhttp.NewError("identity for session not found", http.StatusForbidden)
-	}
-
-	return identity, nil
-}
-
-func (s *SessionService) Login(ctx context.Context, name string, secret string) (*Session, error) {
+func (s *SessionService) CreateOrGetSessionForCredentials(ctx context.Context, name string, secret string) (*Session, error) {
 	if name == "" || secret == "" {
 		return nil, xhttp.NewError("name and secret cannot be empty", http.StatusBadRequest)
 	}

@@ -1,10 +1,14 @@
 package test
 
 import (
-	dynamodbadapters "barricade/internal/adapters/dynamodb"
-	"barricade/internal/domain/identity"
+	"barricade/internal/db"
+	"barricade/internal/identity"
 	"context"
 	"fmt"
+	"log"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -14,9 +18,6 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	tcdynamodb "github.com/testcontainers/testcontainers-go/modules/dynamodb"
 	"golang.org/x/crypto/bcrypt"
-	"log"
-	"testing"
-	"time"
 )
 
 const (
@@ -79,7 +80,7 @@ func setupModule(t *testing.T) *identityModule {
 		assert.NoError(c, err, "waiting for table creation")
 	}, 30*time.Second, 1*time.Second, "Failed to create table after retries")
 
-	ddbRepository := dynamodbadapters.IdentityRepository{
+	ddbRepository := db.IdentityRepository{
 		Client: client,
 		Table:  aws.String("test_identity_table"),
 	}

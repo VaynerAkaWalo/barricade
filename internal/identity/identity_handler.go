@@ -1,17 +1,17 @@
-package handlers
+package identity
 
 import (
-	"barricade/internal/domain/identity"
 	"encoding/json"
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"net/http"
+
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 )
 
 type IdentityResponse struct {
-	ID        identity.Id `json:"id"`
-	Name      string      `json:"name"`
-	CreatedAt int64       `json:"createdAt"`
-	UpdatedAt int64       `json:"updatedAt"`
+	ID        Id     `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt int64  `json:"createdAt"`
+	UpdatedAt int64  `json:"updatedAt"`
 }
 
 type registerRequest struct {
@@ -19,15 +19,15 @@ type registerRequest struct {
 	Secret string `json:"secret"`
 }
 
-type IdentityHttpHandler struct {
-	Service identity.Service
+type HttpHandler struct {
+	Service Service
 }
 
-func (handler *IdentityHttpHandler) RegisterRoutes(router *xhttp.Router) {
+func (handler *HttpHandler) RegisterRoutes(router *xhttp.Router) {
 	router.RegisterHandler("POST /v1/register", handler.Register)
 }
 
-func (handler *IdentityHttpHandler) Register(w http.ResponseWriter, r *http.Request) error {
+func (handler *HttpHandler) Register(w http.ResponseWriter, r *http.Request) error {
 	var request registerRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)

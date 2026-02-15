@@ -1,15 +1,16 @@
 package ihttp
 
 import (
-	"barricade/internal/domain/authentication"
+	"barricade/internal/authentication"
 	"context"
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"log/slog"
 	"net/http"
+
+	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 )
 
 type BarricadeAuthenticationProvider struct {
-	SessionService authentication.SessionService
+	AuthenticationService authentication.Service
 }
 
 func (provider BarricadeAuthenticationProvider) FetchUser(ctx context.Context, token string, schema string) (xhttp.User, error) {
@@ -18,7 +19,7 @@ func (provider BarricadeAuthenticationProvider) FetchUser(ctx context.Context, t
 		return xhttp.User{}, xhttp.NewError("unsupported schema type", http.StatusBadRequest)
 	}
 
-	identity, err := provider.SessionService.GetIdentityBySession(ctx, authentication.SessionId(token))
+	identity, err := provider.AuthenticationService.AuthenticateBySession(ctx, authentication.SessionId(token))
 	if err != nil {
 		return xhttp.User{}, err
 	}
