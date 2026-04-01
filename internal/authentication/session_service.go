@@ -3,9 +3,7 @@ package authentication
 import (
 	"barricade/internal/identity"
 	"context"
-	"net/http"
-
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
+	"errors"
 )
 
 type SessionRepository interface {
@@ -25,32 +23,40 @@ type SessionService struct {
 }
 
 func (s *SessionService) CreateOrGetSessionForCredentials(ctx context.Context, name string, secret string) (*Session, error) {
-	if name == "" || secret == "" {
-		return nil, xhttp.NewError("name and secret cannot be empty", http.StatusBadRequest)
+	if name == "" {
+		return nil, ErrEmptyName
+	}
+	if secret == "" {
+		return nil, ErrEmptySecret
 	}
 
-	identity, err := s.IdentityStore.FindByName(ctx, name)
+	ident, err := s.IdentityStore.FindByName(ctx, name)
 	if err != nil {
-		return nil, xhttp.NewError("identity not found", http.StatusNotFound)
+		if errors.Is(err, identity.ErrIdentityNotFound) {
+			return nil, ErrInvalidCredentials
+		}
+		return nil, err
 	}
 
-	if err = identity.ValidateSecret(secret); err != nil {
-		return nil, xhttp.NewError("invalid secret", http.StatusForbidden)
+	if err = ident.ValidateSecret(secret); err != nil {
+		return nil, ErrInvalidCredentials
 	}
 
-	session, err := s.SessionStore.FindByIdentity(ctx, identity.Id)
+	session, err := s.SessionStore.FindByIdentity(ctx, ident.Id)
 	if err == nil {
 		return session, nil
 	}
+	if !errors.Is(err, ErrSessionNotFound) {
+		return nil, err
+	}
 
-	session, err = NewSession(identity.Id)
+	session, err = NewSession(ident.Id)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.SessionStore.Save(ctx, session)
-	if err != nil {
-		return nil, xhttp.NewError("unable to create new session", http.StatusInternalServerError)
+	if err = s.SessionStore.Save(ctx, session); err != nil {
+		return nil, err
 	}
 
 	return session, nil

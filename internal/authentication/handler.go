@@ -2,7 +2,9 @@ package authentication
 
 import (
 	"barricade/internal/identity"
+	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -43,7 +45,7 @@ func (handler *HttpHandler) login(w http.ResponseWriter, r *http.Request) error 
 
 	session, err := handler.Service.CreateOrGetSessionForCredentials(r.Context(), request.Name, request.Secret)
 	if err != nil {
-		return err
+		return mapAuthenticationError(r.Context(), err)
 	}
 
 	sessionCookie := http.Cookie{
@@ -80,15 +82,31 @@ func (handler *HttpHandler) whoAmI(w http.ResponseWriter, r *http.Request) error
 		return xhttp.NewError("internal server error", http.StatusInternalServerError)
 	}
 
-	identity, err := handler.Service.IdentityStore.FindById(ctx, identity.Id(identityId))
+	ident, err := handler.Service.IdentityStore.FindById(ctx, identity.Id(identityId))
 	if err != nil {
-		return err
+		return mapAuthenticationError(ctx, err)
 	}
 
 	response := whoAmIResponse{
-		Id:   string(identity.Id),
-		Name: identity.Name,
+		Id:   string(ident.Id),
+		Name: ident.Name,
 	}
 
 	return xhttp.WriteResponse(w, http.StatusOK, response)
+}
+
+func mapAuthenticationError(ctx context.Context, err error) error {
+	switch {
+	case errors.Is(err, ErrEmptyName), errors.Is(err, ErrEmptySecret):
+		return xhttp.NewError("name and secret are required", http.StatusBadRequest)
+	case errors.Is(err, ErrInvalidCredentials):
+		return xhttp.NewError("invalid credentials", http.StatusUnauthorized)
+	case errors.Is(err, identity.ErrIdentityNotFound):
+		return xhttp.NewError("invalid credentials", http.StatusUnauthorized)
+	case errors.Is(err, ErrSessionNotFound), errors.Is(err, ErrSessionExpired):
+		return xhttp.NewError("session expired", http.StatusUnauthorized)
+	default:
+		slog.ErrorContext(ctx, "authentication service error", "error", err)
+		return xhttp.NewError("authentication failed", http.StatusInternalServerError)
+	}
 }

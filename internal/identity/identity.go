@@ -1,10 +1,8 @@
 package identity
 
 import (
-	"net/http"
 	"time"
 
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"github.com/VaynerAkaWalo/go-toolkit/xuuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -20,13 +18,16 @@ type Identity struct {
 }
 
 func New(name string, secret string) (*Identity, error) {
-	if name == "" || secret == "" {
-		return nil, xhttp.NewError("name and secret cannot be null or empty", http.StatusBadRequest)
+	if name == "" {
+		return nil, ErrEmptyName
+	}
+	if secret == "" {
+		return nil, ErrEmptySecret
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(secret), 14)
 	if err != nil {
-		return nil, xhttp.NewError("internal error while creating secret hash", http.StatusInternalServerError)
+		return nil, err
 	}
 
 	createdAt := time.Now().UnixMilli()

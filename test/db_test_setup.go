@@ -2,6 +2,10 @@ package test
 
 import (
 	"context"
+	"log"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -9,9 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go"
 	tcdynamodb "github.com/testcontainers/testcontainers-go/modules/dynamodb"
-	"log"
-	"testing"
-	"time"
 )
 
 func setupDynamo(t *testing.T, tables ...dynamodb.CreateTableInput) *dynamodb.Client {
