@@ -3,9 +3,7 @@ package authentication
 import (
 	"barricade/internal/identity"
 	"context"
-	"net/http"
-
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
+	"time"
 )
 
 type Service struct {
@@ -15,18 +13,22 @@ type Service struct {
 
 func (service *Service) AuthenticateBySession(ctx context.Context, sessionId SessionId) (*identity.Identity, error) {
 	if sessionId == "" {
-		return nil, xhttp.NewError("session id cannot be null or empty", http.StatusBadRequest)
+		return nil, ErrEmptySessionId
 	}
 
 	session, err := service.SessionStore.FindById(ctx, sessionId)
 	if err != nil {
-		return nil, xhttp.NewError("session expired", http.StatusForbidden)
+		return nil, err
 	}
 
-	identity, err := service.IdentityStore.FindById(ctx, session.Owner)
+	if time.Now().Unix() > session.ExpireAt {
+		return nil, ErrSessionExpired
+	}
+
+	ident, err := service.IdentityStore.FindById(ctx, session.Owner)
 	if err != nil {
-		return nil, xhttp.NewError("identity for session not found", http.StatusForbidden)
+		return nil, err
 	}
 
-	return identity, nil
+	return ident, nil
 }

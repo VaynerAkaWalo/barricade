@@ -6,10 +6,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 
-	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
@@ -75,12 +73,13 @@ func (r *SessionRepository) FindById(ctx context.Context, id authentication.Sess
 	}
 
 	if len(output.Item) == 0 {
-		return nil, xhttp.NewError("session not found", http.StatusNotFound)
+		return nil, authentication.ErrSessionNotFound
 	}
 
 	var item dbSessionAdapter
 	err = attributevalue.UnmarshalMap(output.Item, &item)
 	if err != nil {
+		slog.ErrorContext(ctx, fmt.Sprintf("failed to unmarshal session: %v", err))
 		return nil, err
 	}
 
@@ -96,7 +95,8 @@ func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId identity
 	keyEx := expression.Key("secondary-lookup").Equal(expression.Value(ownerId))
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
-		return nil, xhttp.NewError("cannot construct key", http.StatusInternalServerError)
+		slog.ErrorContext(ctx, fmt.Sprintf("failed to build expression: %v", err))
+		return nil, err
 	}
 
 	output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
@@ -109,11 +109,11 @@ func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId identity
 
 	if err != nil {
 		slog.ErrorContext(ctx, err.Error())
-		return nil, xhttp.NewError("error while looking for session", http.StatusInternalServerError)
+		return nil, err
 	}
 
 	if len(output.Items) == 0 {
-		return nil, xhttp.NewError("session not found", http.StatusNotFound)
+		return nil, authentication.ErrSessionNotFound
 	}
 
 	if len(output.Items) > 1 {
@@ -123,7 +123,8 @@ func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId identity
 	var session dbSessionAdapter
 	err = attributevalue.UnmarshalMap(output.Items[0], &session)
 	if err != nil {
-		return nil, xhttp.NewError("db result does not satisfy required schema", http.StatusInternalServerError)
+		slog.ErrorContext(ctx, fmt.Sprintf("failed to unmarshal session: %v", err))
+		return nil, err
 	}
 
 	return &authentication.Session{

@@ -1,7 +1,10 @@
 package identity
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
@@ -37,7 +40,7 @@ func (handler *HttpHandler) Register(w http.ResponseWriter, r *http.Request) err
 
 	entity, err := handler.Service.Register(r.Context(), request.Name, request.Secret)
 	if err != nil {
-		return xhttp.NewError("unable to create identity with specified attributes", http.StatusInternalServerError)
+		return mapIdentityError(r.Context(), err)
 	}
 
 	dto := IdentityResponse{
@@ -48,4 +51,18 @@ func (handler *HttpHandler) Register(w http.ResponseWriter, r *http.Request) err
 	}
 
 	return xhttp.WriteResponse(w, http.StatusCreated, dto)
+}
+
+func mapIdentityError(ctx context.Context, err error) error {
+	switch {
+	case errors.Is(err, ErrEmptyName):
+		return xhttp.NewError("name is required", http.StatusBadRequest)
+	case errors.Is(err, ErrEmptySecret):
+		return xhttp.NewError("secret is required", http.StatusBadRequest)
+	case errors.Is(err, ErrDuplicateIdentityName):
+		return xhttp.NewError("identity with this name already exists", http.StatusConflict)
+	default:
+		slog.ErrorContext(ctx, "identity service error", "error", err)
+		return xhttp.NewError("unable to create identity", http.StatusInternalServerError)
+	}
 }

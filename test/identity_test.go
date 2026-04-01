@@ -1,13 +1,14 @@
 package test
 
 import (
-	"barricade/internal/db"
-	"barricade/internal/identity"
 	"context"
 	"fmt"
 	"log"
 	"testing"
 	"time"
+
+	"barricade/internal/db"
+	"barricade/internal/identity"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -95,10 +96,10 @@ func TestRegisterInputValidation(t *testing.T) {
 	module := setupModule(t)
 
 	_, err := module.service.Register(context.Background(), "", TEST_SECRET)
-	assert.ErrorContains(t, err, "name and secret cannot be null or empty")
+	assert.ErrorIs(t, err, identity.ErrEmptyName)
 
 	_, err = module.service.Register(context.Background(), TEST_NAME, "")
-	assert.ErrorContains(t, err, "name and secret cannot be null or empty")
+	assert.ErrorIs(t, err, identity.ErrEmptySecret)
 }
 
 func TestRegisterHappyPath(t *testing.T) {

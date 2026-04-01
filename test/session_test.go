@@ -1,11 +1,12 @@
 package test
 
 import (
+	"context"
+	"testing"
+
 	"barricade/internal/authentication"
 	"barricade/internal/db"
 	"barricade/internal/identity"
-	"context"
-	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -145,7 +146,7 @@ func TestLoginUnknownUser(t *testing.T) {
 	module := setupSessionModule(t)
 
 	_, err := module.sessionService.CreateOrGetSessionForCredentials(context.Background(), "unknown name", TEST_SECRET)
-	assert.ErrorContains(t, err, "identity not found")
+	assert.ErrorIs(t, err, authentication.ErrInvalidCredentials)
 }
 
 func TestLoginInvalidPassword(t *testing.T) {
@@ -155,7 +156,7 @@ func TestLoginInvalidPassword(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = module.sessionService.CreateOrGetSessionForCredentials(context.Background(), TEST_NAME, "invalid secret")
-	assert.ErrorContains(t, err, "invalid secret")
+	assert.ErrorIs(t, err, authentication.ErrInvalidCredentials)
 }
 
 func TestLoginHappyPath(t *testing.T) {
@@ -175,10 +176,10 @@ func TestAuthenticateBySessionInvalidSessionId(t *testing.T) {
 	module := setupSessionModule(t)
 
 	_, err := module.authenticationService.AuthenticateBySession(context.Background(), "")
-	assert.ErrorContains(t, err, "session id cannot be null or empty")
+	assert.ErrorIs(t, err, authentication.ErrEmptySessionId)
 
 	_, err = module.authenticationService.AuthenticateBySession(context.Background(), "unknown session")
-	assert.ErrorContains(t, err, "session expired")
+	assert.ErrorIs(t, err, authentication.ErrSessionNotFound)
 }
 
 func TestAuthenticateBySessionHappyPath(t *testing.T) {
