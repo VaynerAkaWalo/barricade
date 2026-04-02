@@ -2,7 +2,6 @@ package main
 
 import (
 	"barricade/internal/authentication"
-	"barricade/internal/db"
 	"barricade/internal/identity"
 	"barricade/internal/infrastructure"
 	"barricade/internal/infrastructure/ihttp"
@@ -39,7 +38,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	identityRepository := db.NewIdentityRepository(awsCfg)
+	identityRepository := identity.NewIdentityRepository(awsCfg)
 
 	identityHandler := identity.HttpHandler{
 		Service: identity.Service{
@@ -48,7 +47,7 @@ func main() {
 	}
 
 	sessionService := authentication.SessionService{
-		SessionStore:  db.NewSessionRepository(awsCfg),
+		SessionStore:  authentication.NewSessionRepository(awsCfg),
 		IdentityStore: identityRepository,
 	}
 

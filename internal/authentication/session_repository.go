@@ -1,7 +1,6 @@
-package db
+package authentication
 
 import (
-	"barricade/internal/authentication"
 	"barricade/internal/identity"
 	"context"
 	"fmt"
@@ -23,21 +22,21 @@ type dbSessionAdapter struct {
 	ExpireAt     int64  `dynamodbav:"expireAt"`
 }
 
-type SessionRepository struct {
+type DynamoDBSessionRepository struct {
 	Client    *dynamodb.Client
 	Table     *string
 	NameIndex *string
 }
 
-func NewSessionRepository(cfg aws.Config) *SessionRepository {
-	return &SessionRepository{
+func NewSessionRepository(cfg aws.Config) *DynamoDBSessionRepository {
+	return &DynamoDBSessionRepository{
 		Client:    dynamodb.NewFromConfig(cfg),
 		Table:     aws.String(os.Getenv("SESSION_TABLE")),
 		NameIndex: aws.String(os.Getenv("SESSION_TABLE_NAME_INDEX")),
 	}
 }
 
-func (r *SessionRepository) Save(ctx context.Context, session *authentication.Session) error {
+func (r *DynamoDBSessionRepository) Save(ctx context.Context, session *Session) error {
 	dbSession := &dbSessionAdapter{
 		Id:           string(session.Id),
 		Owner:        string(session.Owner),
@@ -59,7 +58,7 @@ func (r *SessionRepository) Save(ctx context.Context, session *authentication.Se
 	return err
 }
 
-func (r *SessionRepository) FindById(ctx context.Context, id authentication.SessionId) (*authentication.Session, error) {
+func (r *DynamoDBSessionRepository) FindById(ctx context.Context, id SessionId) (*Session, error) {
 	key, _ := attributevalue.Marshal(id)
 
 	output, err := r.Client.GetItem(ctx, &dynamodb.GetItemInput{
@@ -73,7 +72,7 @@ func (r *SessionRepository) FindById(ctx context.Context, id authentication.Sess
 	}
 
 	if len(output.Item) == 0 {
-		return nil, authentication.ErrSessionNotFound
+		return nil, ErrSessionNotFound
 	}
 
 	var item dbSessionAdapter
@@ -83,7 +82,7 @@ func (r *SessionRepository) FindById(ctx context.Context, id authentication.Sess
 		return nil, err
 	}
 
-	return &authentication.Session{
+	return &Session{
 		Id:        id,
 		Owner:     identity.Id(item.Owner),
 		CreatedAt: item.CreatedAt,
@@ -91,7 +90,7 @@ func (r *SessionRepository) FindById(ctx context.Context, id authentication.Sess
 	}, nil
 }
 
-func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId identity.Id) (*authentication.Session, error) {
+func (r *DynamoDBSessionRepository) FindByIdentity(ctx context.Context, ownerId identity.Id) (*Session, error) {
 	keyEx := expression.Key("secondary-lookup").Equal(expression.Value(ownerId))
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
@@ -113,7 +112,7 @@ func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId identity
 	}
 
 	if len(output.Items) == 0 {
-		return nil, authentication.ErrSessionNotFound
+		return nil, ErrSessionNotFound
 	}
 
 	if len(output.Items) > 1 {
@@ -127,8 +126,8 @@ func (r *SessionRepository) FindByIdentity(ctx context.Context, ownerId identity
 		return nil, err
 	}
 
-	return &authentication.Session{
-		Id:        authentication.SessionId(session.Id),
+	return &Session{
+		Id:        SessionId(session.Id),
 		Owner:     identity.Id(session.Owner),
 		CreatedAt: session.CreatedAt,
 		ExpireAt:  session.ExpireAt,

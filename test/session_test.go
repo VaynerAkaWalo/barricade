@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"barricade/internal/authentication"
-	"barricade/internal/db"
 	"barricade/internal/identity"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -104,13 +103,13 @@ func setupSessionModule(t *testing.T) *sessionModule {
 
 	client := setupDynamo(t, sessionTable, identityTable)
 
-	identityStore := &db.IdentityRepository{
+	identityStore := &identity.DynamoDBIdentityRepository{
 		Client:    client,
 		Table:     aws.String("test_identity_table"),
 		NameIndex: aws.String("name-index"),
 	}
 
-	sessionStore := &db.SessionRepository{
+	sessionStore := &authentication.DynamoDBSessionRepository{
 		Client:    client,
 		Table:     aws.String("test_session_table"),
 		NameIndex: aws.String("secondary-lookup-index"),
@@ -122,7 +121,7 @@ func setupSessionModule(t *testing.T) *sessionModule {
 	}
 
 	identityService := identity.Service{
-		Repo: &db.IdentityRepository{
+		Repo: &identity.DynamoDBIdentityRepository{
 			Client: client,
 			Table:  aws.String("test_identity_table"),
 		},

@@ -1,7 +1,6 @@
-package db
+package identity
 
 import (
-	"barricade/internal/identity"
 	"context"
 	"fmt"
 	"log/slog"
@@ -22,7 +21,7 @@ type identityDDB struct {
 	UpdatedAt  int64  `dynamodbav:"updatedAt"`
 }
 
-func convertToDB(identity *identity.Identity) *identityDDB {
+func convertToDB(identity *Identity) *identityDDB {
 	return &identityDDB{
 		Id:         string(identity.Id),
 		Name:       identity.Name,
@@ -32,26 +31,26 @@ func convertToDB(identity *identity.Identity) *identityDDB {
 	}
 }
 
-func key(id identity.Id) map[string]types.AttributeValue {
+func key(id Id) map[string]types.AttributeValue {
 	dbId, _ := attributevalue.Marshal(id)
 	return map[string]types.AttributeValue{"id": dbId}
 }
 
-type IdentityRepository struct {
+type DynamoDBIdentityRepository struct {
 	Client    *dynamodb.Client
 	Table     *string
 	NameIndex *string
 }
 
-func NewIdentityRepository(cfg aws.Config) *IdentityRepository {
-	return &IdentityRepository{
+func NewIdentityRepository(cfg aws.Config) *DynamoDBIdentityRepository {
+	return &DynamoDBIdentityRepository{
 		Client:    dynamodb.NewFromConfig(cfg),
 		Table:     aws.String(os.Getenv("IDENTITY_TABLE_NAME")),
 		NameIndex: aws.String("name-index"),
 	}
 }
 
-func (r *IdentityRepository) Save(ctx context.Context, identity *identity.Identity) error {
+func (r *DynamoDBIdentityRepository) Save(ctx context.Context, identity *Identity) error {
 	item, err := attributevalue.MarshalMap(convertToDB(identity))
 	if err != nil {
 		return err
@@ -69,7 +68,7 @@ func (r *IdentityRepository) Save(ctx context.Context, identity *identity.Identi
 	return nil
 }
 
-func (r *IdentityRepository) FindById(ctx context.Context, id identity.Id) (*identity.Identity, error) {
+func (r *DynamoDBIdentityRepository) FindById(ctx context.Context, id Id) (*Identity, error) {
 	output, err := r.Client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName:      r.Table,
 		ConsistentRead: aws.Bool(false),
@@ -81,7 +80,7 @@ func (r *IdentityRepository) FindById(ctx context.Context, id identity.Id) (*ide
 	}
 
 	if len(output.Item) == 0 {
-		return nil, identity.ErrIdentityNotFound
+		return nil, ErrIdentityNotFound
 	}
 
 	var dbEntity identityDDB
@@ -91,7 +90,7 @@ func (r *IdentityRepository) FindById(ctx context.Context, id identity.Id) (*ide
 		return nil, err
 	}
 
-	entity := &identity.Identity{
+	entity := &Identity{
 		Id:         id,
 		Name:       dbEntity.Name,
 		SecretHash: dbEntity.SecretHash,
@@ -102,7 +101,7 @@ func (r *IdentityRepository) FindById(ctx context.Context, id identity.Id) (*ide
 	return entity, nil
 }
 
-func (r *IdentityRepository) FindByName(ctx context.Context, name string) (*identity.Identity, error) {
+func (r *DynamoDBIdentityRepository) FindByName(ctx context.Context, name string) (*Identity, error) {
 	keyEx := expression.Key("name").Equal(expression.Value(name))
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
@@ -123,12 +122,12 @@ func (r *IdentityRepository) FindByName(ctx context.Context, name string) (*iden
 	}
 
 	if len(output.Items) == 0 {
-		return nil, identity.ErrIdentityNotFound
+		return nil, ErrIdentityNotFound
 	}
 
 	if len(output.Items) > 1 {
 		slog.ErrorContext(ctx, fmt.Sprintf("found %d identities with name %s", len(output.Items), name))
-		return nil, identity.ErrDuplicateIdentityName
+		return nil, ErrDuplicateIdentityName
 	}
 
 	var entity identityDDB
@@ -138,8 +137,8 @@ func (r *IdentityRepository) FindByName(ctx context.Context, name string) (*iden
 		return nil, err
 	}
 
-	return &identity.Identity{
-		Id:         identity.Id(entity.Id),
+	return &Identity{
+		Id:         Id(entity.Id),
 		Name:       entity.Name,
 		SecretHash: entity.SecretHash,
 	}, nil
