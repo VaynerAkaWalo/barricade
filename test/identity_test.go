@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"barricade/internal/db"
 	"barricade/internal/identity"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -81,7 +80,7 @@ func setupModule(t *testing.T) *identityModule {
 		assert.NoError(c, err, "waiting for table creation")
 	}, 30*time.Second, 1*time.Second, "Failed to create table after retries")
 
-	ddbRepository := db.IdentityRepository{
+	ddbRepository := identity.DynamoDBIdentityRepository{
 		Client: client,
 		Table:  aws.String("test_identity_table"),
 	}
