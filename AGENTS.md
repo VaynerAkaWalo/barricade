@@ -21,6 +21,7 @@ Barricade is a Go-based authentication and authorization microservice using Dyna
 - **Package names**: Short, lowercase, no underscores
   - **Domain Packages**:  (e.g., `identity`, `authentication`, `db`)
   - **Infra / Utils**: prefixed with i for  (e.g., `ihttp`, `ictx`)
+- branch name should start with either `feat`, `chore` or `fix`
 
 ### Type Patterns
 - Domain objects should be defined in domain package in `DOMAIN_OBJECT_NAME.go`.
