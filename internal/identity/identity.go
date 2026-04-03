@@ -3,7 +3,7 @@ package identity
 import (
 	"time"
 
-	"github.com/VaynerAkaWalo/go-toolkit/xuuid"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -33,7 +33,7 @@ func New(name string, secret string) (*Identity, error) {
 	createdAt := time.Now().UnixMilli()
 
 	return &Identity{
-		Id:         Id(xuuid.Base32UUID()),
+		Id:         Id(uuid.Must(uuid.NewV7()).String()),
 		Name:       name,
 		SecretHash: hash,
 		CreatedAt:  createdAt,

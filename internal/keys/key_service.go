@@ -8,13 +8,14 @@ import (
 	"encoding/pem"
 	"time"
 
-	"github.com/VaynerAkaWalo/go-toolkit/xuuid"
+	"github.com/google/uuid"
 )
 
 type Repository interface {
 	Save(ctx context.Context, key *Key) error
 	FindById(ctx context.Context, id KeyId) (*Key, error)
 	FindLatest(ctx context.Context, algorithm Algorithm) (*Key, error)
+	FindAll(ctx context.Context) ([]*Key, error)
 }
 
 type Service struct {
@@ -73,7 +74,7 @@ func (s *Service) createRS256Key() (*Key, error) {
 	createdAt := time.Now().UnixMilli()
 
 	return &Key{
-		Id:         KeyId(xuuid.Base32UUID()),
+		Id:         KeyId(uuid.Must(uuid.NewV7()).String()),
 		Algorithm:  RS256,
 		CreatedAt:  createdAt,
 		PublicKey:  publicKeyPEM,
@@ -83,6 +84,10 @@ func (s *Service) createRS256Key() (*Key, error) {
 
 func (s *Service) GetKey(ctx context.Context, id KeyId) (*Key, error) {
 	return s.repo.FindById(ctx, id)
+}
+
+func (s *Service) ListAllKeys(ctx context.Context) ([]*Key, error) {
+	return s.repo.FindAll(ctx)
 }
 
 func (s *Service) GetSigningKey(ctx context.Context, algorithm Algorithm) (*Key, error) {

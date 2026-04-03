@@ -94,3 +94,41 @@ func TestKeySignRS256(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, signature)
 }
+
+func TestListAllKeysEmpty(t *testing.T) {
+	repo := NewInMemoryRepository()
+	service := NewService(repo)
+	ctx := context.Background()
+
+	keys, err := service.ListAllKeys(ctx)
+
+	require.NoError(t, err)
+	assert.Empty(t, keys)
+}
+
+func TestListAllKeysReturnsAllKeys(t *testing.T) {
+	repo := NewInMemoryRepository()
+	service := NewService(repo)
+	ctx := context.Background()
+
+	// Create multiple keys
+	key1, err := service.CreateKey(ctx, RS256)
+	require.NoError(t, err)
+
+	key2, err := service.CreateKey(ctx, RS256)
+	require.NoError(t, err)
+
+	// Get all keys
+	allKeys, err := service.ListAllKeys(ctx)
+
+	require.NoError(t, err)
+	assert.Len(t, allKeys, 2)
+
+	// Verify both keys are present
+	keyIds := make(map[KeyId]bool)
+	for _, key := range allKeys {
+		keyIds[key.Id] = true
+	}
+	assert.True(t, keyIds[key1.Id])
+	assert.True(t, keyIds[key2.Id])
+}

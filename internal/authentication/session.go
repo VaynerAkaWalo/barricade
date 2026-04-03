@@ -1,9 +1,10 @@
 package authentication
 
 import (
-	"barricade/internal/identity"
-	"barricade/pkg/uuid"
 	"time"
+
+	"barricade/internal/identity"
+	"github.com/google/uuid"
 )
 
 type SessionId string
@@ -23,7 +24,7 @@ func NewSession(owner identity.Id) (*Session, error) {
 	createdAt := time.Now()
 
 	return &Session{
-		Id:        SessionId(uuid.New()),
+		Id:        SessionId(uuid.Must(uuid.NewV7()).String()),
 		Owner:     owner,
 		CreatedAt: createdAt.UnixMilli(),
 		ExpireAt:  createdAt.Add(time.Minute * 5).Unix(),
