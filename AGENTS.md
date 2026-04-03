@@ -21,7 +21,7 @@ Barricade is a Go-based authentication and authorization microservice using Dyna
 
 ### Type Patterns
 - Domain objects should be defined in domain package in `DOMAIN_OBJECT_NAME.go`.
-- Service type, repository interface and service methods should be defined in `DOMAIN_SERVICE.go`
+- Service type, repository interface and service methods should be defined in service class
 - Fields representing fixed set of values OR domain ids should be declared as custom type (e.g. `identityId`, `keyType`, `algorithm`)
 - Use struct tags for JSON: `json:"fieldName"`
 
