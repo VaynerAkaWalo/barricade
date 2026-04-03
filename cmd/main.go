@@ -5,6 +5,8 @@ import (
 	"barricade/internal/identity"
 	"barricade/internal/infrastructure"
 	"barricade/internal/infrastructure/ihttp"
+	"barricade/internal/keys"
+	"barricade/internal/oidc"
 	"context"
 	"log"
 	"log/slog"
@@ -40,6 +42,14 @@ func main() {
 
 	identityRepository := identity.NewIdentityRepository(awsCfg)
 
+	keyRepo := keys.NewInMemoryRepository()
+	keyService := keys.NewService(keyRepo)
+
+	_, err = keyService.CreateKey(context.TODO(), keys.RS256)
+	if err != nil {
+		log.Fatal("failed to create initial signing key: ", err)
+	}
+
 	identityHandler := identity.HttpHandler{
 		Service: identity.Service{
 			Repo: identityRepository,
@@ -62,15 +72,19 @@ func main() {
 		SessionStore:  sessionService.SessionStore,
 	}
 
+	jwksHandler := oidc.JWKSHandler{
+		KeyService: keyService,
+	}
+
 	authenticator := xhttp.NewAuthenticator(
 		ihttp.BarricadeAuthenticationProvider{
 			AuthenticationService: authNService,
 		},
-		[]string{"GET /health", "POST /v1/login", "POST /v1/register"}...)
+		[]string{"GET /health", "POST /v1/login", "POST /v1/register", "GET /.well-known/jwks.json"}...)
 
 	httpServer := xhttp.Server{
 		Addr:     ":8080",
-		Handlers: []xhttp.RouteHandler{&identityHandler, &authNHandler, &infrastructure.HealthHttpHandler{}},
+		Handlers: []xhttp.RouteHandler{&identityHandler, &authNHandler, &infrastructure.HealthHttpHandler{}, &jwksHandler},
 		AuthN:    authenticator,
 	}
 

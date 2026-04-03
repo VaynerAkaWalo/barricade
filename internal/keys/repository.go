@@ -21,7 +21,6 @@ func (r *InMemoryRepository) Save(ctx context.Context, key *Key) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Store a copy to prevent external modifications
 	storedKey := *key
 	r.keys[key.Id] = &storedKey
 	return nil
@@ -58,4 +57,16 @@ func (r *InMemoryRepository) FindLatest(ctx context.Context, algorithm Algorithm
 	})
 
 	return candidates[0], nil
+}
+
+func (r *InMemoryRepository) FindAll(ctx context.Context) ([]*Key, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]*Key, 0, len(r.keys))
+	for _, key := range r.keys {
+		result = append(result, key)
+	}
+
+	return result, nil
 }
