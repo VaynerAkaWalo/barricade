@@ -15,6 +15,7 @@ Barricade is a Go-based authentication and authorization microservice using Dyna
 
 ### General
 - Do not add comments to code
+- If service function requires more than 2 arguments (excluding context) create struct for params with name `XXXparams`
 
 ### Naming Conventions
 - **File names**: snake_case for multi-word files (e.g., `identity_service.go`)
