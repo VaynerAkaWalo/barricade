@@ -89,6 +89,7 @@ func main() {
 
 	authorizeHandler := oauth2.HttpHandler{
 		Service:            &authorizeService,
+		AuthService:        &authNService,
 		LoginURL:           cfg.LoginURL,
 		DefaultRedirectURI: cfg.IssuerURL,
 	}

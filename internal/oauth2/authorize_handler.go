@@ -1,9 +1,12 @@
 package oauth2
 
 import (
+	"barricade/internal/authentication"
 	"barricade/internal/identity"
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 
@@ -12,6 +15,7 @@ import (
 
 type HttpHandler struct {
 	Service            *AuthorizeService
+	AuthService        *authentication.Service
 	LoginURL           string
 	DefaultRedirectURI string
 }
@@ -46,8 +50,9 @@ func (h *HttpHandler) Authorize(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	identityId, ok := ctx.Value(xhttp.UserId).(string)
-	if !ok || identityId == "" {
+	identityId, err := h.authenticate(ctx, r)
+	if err != nil {
+		slog.ErrorContext(ctx, "authentication failed", "error", err)
 		loginRedirect := h.buildLoginRedirectURL(r)
 		http.Redirect(w, r, loginRedirect, http.StatusFound)
 		return nil
@@ -63,6 +68,24 @@ func (h *HttpHandler) Authorize(w http.ResponseWriter, r *http.Request) error {
 	redirectURL := buildSuccessRedirectURL(redirectURI, result, h.Service.TokenExpiry)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 	return nil
+}
+
+func (h *HttpHandler) authenticate(ctx context.Context, r *http.Request) (string, error) {
+	if identityId, ok := ctx.Value(xhttp.UserId).(string); ok && identityId != "" {
+		return identityId, nil
+	}
+
+	cookie, err := r.Cookie(authentication.SessionCookie)
+	if err != nil {
+		return "", err
+	}
+
+	ident, err := h.AuthService.AuthenticateBySession(ctx, authentication.SessionId(cookie.Value))
+	if err != nil {
+		return "", err
+	}
+
+	return string(ident.Id), nil
 }
 
 func (h *HttpHandler) buildLoginRedirectURL(r *http.Request) string {

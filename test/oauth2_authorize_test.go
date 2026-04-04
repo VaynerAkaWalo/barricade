@@ -144,8 +144,14 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 		TokenExpiry:   5,
 	}
 
+	authService := &authentication.Service{
+		IdentityStore: identityStore,
+		SessionStore:  sessionStore,
+	}
+
 	authorizeHandler := &oauth2.HttpHandler{
 		Service:            authorizeService,
+		AuthService:        authService,
 		LoginURL:           "https://auth.test.com/login",
 		DefaultRedirectURI: "https://auth.test.com",
 	}
