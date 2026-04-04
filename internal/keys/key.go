@@ -8,8 +8,10 @@ import (
 	"encoding/pem"
 )
 
-type KeyId string
-type Algorithm string
+type (
+	KeyId     string
+	Algorithm string
+)
 
 const (
 	RS256 Algorithm = "RS256"
@@ -26,13 +28,20 @@ type Key struct {
 func (k *Key) Sign(data []byte) ([]byte, error) {
 	switch k.Algorithm {
 	case RS256:
-		return k.signRS256(data)
+		privateKey, err := k.RSAPrivateKey()
+		if err != nil {
+			return nil, err
+		}
+		hash := crypto.SHA256.New()
+		hash.Write(data)
+		digest := hash.Sum(nil)
+		return rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, digest)
 	default:
 		return nil, ErrUnsupportedAlgorithm
 	}
 }
 
-func (k *Key) signer() (crypto.Signer, error) {
+func (k *Key) RSAPrivateKey() (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(k.PrivateKey)
 	if block == nil {
 		return nil, ErrInvalidKey
@@ -46,28 +55,10 @@ func (k *Key) signer() (crypto.Signer, error) {
 		}
 	}
 
-	signer, ok := key.(crypto.Signer)
+	rsaPrivateKey, ok := key.(*rsa.PrivateKey)
 	if !ok {
 		return nil, ErrInvalidKey
 	}
 
-	return signer, nil
-}
-
-func (k *Key) signRS256(data []byte) ([]byte, error) {
-	signer, err := k.signer()
-	if err != nil {
-		return nil, err
-	}
-
-	hash := crypto.SHA256.New()
-	hash.Write(data)
-	digest := hash.Sum(nil)
-
-	rsaPrivateKey, ok := signer.(*rsa.PrivateKey)
-	if !ok {
-		return nil, ErrInvalidKey
-	}
-
-	return rsa.SignPKCS1v15(rand.Reader, rsaPrivateKey, crypto.SHA256, digest)
+	return rsaPrivateKey, nil
 }

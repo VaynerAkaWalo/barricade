@@ -7,14 +7,15 @@ import (
 	"github.com/google/uuid"
 )
 
-type SessionId string
-
-type Session struct {
-	Id        SessionId
-	Owner     identity.Id
-	CreatedAt int64
-	ExpireAt  int64
-}
+type (
+	SessionId string
+	Session   struct {
+		Id        SessionId
+		Owner     identity.Id
+		CreatedAt int64
+		ExpireAt  int64
+	}
+)
 
 func NewSession(owner identity.Id) (*Session, error) {
 	if owner == "" {
