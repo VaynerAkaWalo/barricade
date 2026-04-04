@@ -6,6 +6,7 @@ import (
 	"barricade/internal/infrastructure"
 	"barricade/internal/infrastructure/ihttp"
 	"barricade/internal/keys"
+	"barricade/internal/oauth2"
 	"barricade/internal/oidc"
 	"context"
 	"log"
@@ -19,10 +20,13 @@ import (
 )
 
 type appConfig struct {
-	Domain       string `env:"DOMAIN"`
-	SessionTime  int    `env:"SESSION_TIME" envDefault:"7200"`
-	AwsAccessKey string `env:"DDB_ACCESS_KEY"`
-	AwsSecretKey string `env:"DDB_ACCESS_SECRET_KEY"`
+	Domain             string `env:"DOMAIN"`
+	SessionTime        int    `env:"SESSION_TIME" envDefault:"7200"`
+	AwsAccessKey       string `env:"DDB_ACCESS_KEY"`
+	AwsSecretKey       string `env:"DDB_ACCESS_SECRET_KEY"`
+	IssuerURL          string `env:"ISSUER_URL" envDefault:"https://auth.blamedevs.com"`
+	LoginURL           string `env:"LOGIN_URL" envDefault:"https://auth.blamedevs.com/login"`
+	TokenExpiryMinutes int    `env:"TOKEN_EXPIRY_MINUTES" envDefault:"5"`
 }
 
 func main() {
@@ -76,15 +80,29 @@ func main() {
 		KeyService: keyService,
 	}
 
+	authorizeService := oauth2.AuthorizeService{
+		IdentityStore: identityRepository,
+		KeyService:    keyService,
+		Issuer:        cfg.IssuerURL,
+		TokenExpiry:   cfg.TokenExpiryMinutes,
+	}
+
+	authorizeHandler := oauth2.HttpHandler{
+		Service:            &authorizeService,
+		AuthService:        &authNService,
+		LoginURL:           cfg.LoginURL,
+		DefaultRedirectURI: cfg.IssuerURL,
+	}
+
 	authenticator := xhttp.NewAuthenticator(
 		ihttp.BarricadeAuthenticationProvider{
 			AuthenticationService: authNService,
 		},
-		[]string{"GET /health", "POST /v1/login", "POST /v1/register", "GET /.well-known/jwks.json"}...)
+		[]string{"GET /health", "POST /v1/login", "POST /v1/register", "GET /.well-known/jwks.json", "GET /v1/oauth2/authorize"}...)
 
 	httpServer := xhttp.Server{
 		Addr:     ":8080",
-		Handlers: []xhttp.RouteHandler{&identityHandler, &authNHandler, &infrastructure.HealthHttpHandler{}, &jwksHandler},
+		Handlers: []xhttp.RouteHandler{&identityHandler, &authNHandler, &infrastructure.HealthHttpHandler{}, &jwksHandler, &authorizeHandler},
 		AuthN:    authenticator,
 	}
 
