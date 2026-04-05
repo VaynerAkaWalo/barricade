@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"barricade/internal/identity"
+
 	"github.com/google/uuid"
 )
 
@@ -28,6 +29,6 @@ func NewSession(owner identity.Id) (*Session, error) {
 		Id:        SessionId(uuid.Must(uuid.NewV7()).String()),
 		Owner:     owner,
 		CreatedAt: createdAt.UnixMilli(),
-		ExpireAt:  createdAt.Add(time.Minute * 5).Unix(),
+		ExpireAt:  createdAt.Add(time.Hour * 1).Unix(),
 	}, nil
 }
