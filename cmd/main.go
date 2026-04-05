@@ -21,7 +21,7 @@ import (
 
 type appConfig struct {
 	Domain             string `env:"DOMAIN"`
-	SessionTime        int    `env:"SESSION_TIME" envDefault:"7200"`
+	SessionTime        int    `env:"SESSION_TIME" envDefault:"3600"`
 	AwsAccessKey       string `env:"DDB_ACCESS_KEY"`
 	AwsSecretKey       string `env:"DDB_ACCESS_SECRET_KEY"`
 	IssuerURL          string `env:"ISSUER_URL" envDefault:"https://auth.blamedevs.com"`
