@@ -2,6 +2,14 @@
 
 **Barricade** is a Golang-based microservice specializing in authorization and authentication. It aims to provide a reliable solution for managing user access and permissions. Please note that this project is currently in its early stages and undergoing active development.
 
+## OIDC
+
+Work in progress — implicit flow is working.
+
+- **Response types:** `id_token`
+- **Signing algorithms:** RS256
+- **Endpoints:** `/v1/oauth2/authorize`, `/.well-known/jwks.json`
+
 ## Roadmap
 
 * **User Registration and Session Management:** Handling secure user sign-ups and maintaining active user sessions.
