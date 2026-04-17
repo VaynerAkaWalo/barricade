@@ -45,6 +45,7 @@ func main() {
 	}
 
 	identityRepository := identity.NewIdentityRepository(awsCfg)
+	clientRepository := oauth2.NewClientRepository(awsCfg)
 
 	keyRepo := keys.NewInMemoryRepository()
 	keyService := keys.NewService(keyRepo)
@@ -57,6 +58,12 @@ func main() {
 	identityHandler := identity.HttpHandler{
 		Service: identity.Service{
 			Repo: identityRepository,
+		},
+	}
+
+	clientHandler := oauth2.ClientHttpHandler{
+		ClientService: oauth2.ClientService{
+			Repo: clientRepository,
 		},
 	}
 
@@ -102,7 +109,7 @@ func main() {
 
 	httpServer := xhttp.Server{
 		Addr:     ":8080",
-		Handlers: []xhttp.RouteHandler{&identityHandler, &authNHandler, &infrastructure.HealthHttpHandler{}, &jwksHandler, &authorizeHandler},
+		Handlers: []xhttp.RouteHandler{&identityHandler, &clientHandler, &authNHandler, &infrastructure.HealthHttpHandler{}, &jwksHandler, &authorizeHandler},
 		AuthN:    authenticator,
 	}
 
