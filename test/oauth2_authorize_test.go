@@ -20,9 +20,11 @@ type oauth2Module struct {
 	authorizeHandler   *oauth2.HttpHandler
 	sessionService     authentication.SessionService
 	identityService    identity.Service
+	clientService      oauth2.ClientService
 	keyService         *keys.Service
 	identityRepository identity.Repository
 	sessionRepository  authentication.SessionRepository
+	clientRepository   oauth2.ClientRepository
 }
 
 func setupOAuth2Module(t *testing.T) *oauth2Module {
@@ -105,7 +107,32 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 		BillingMode: types.BillingModePayPerRequest,
 	}
 
-	client := setupDynamo(t, sessionTable, identityTable)
+	entitiesTable := dynamodb.CreateTableInput{
+		TableName: aws.String("test_entities_table"),
+		KeySchema: []types.KeySchemaElement{
+			{
+				AttributeName: aws.String("id"),
+				KeyType:       types.KeyTypeHash,
+			},
+			{
+				AttributeName: aws.String("type"),
+				KeyType:       types.KeyTypeRange,
+			},
+		},
+		AttributeDefinitions: []types.AttributeDefinition{
+			{
+				AttributeName: aws.String("id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("type"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		BillingMode: types.BillingModePayPerRequest,
+	}
+
+	client := setupDynamo(t, sessionTable, identityTable, entitiesTable)
 
 	identityStore := &identity.DynamoDBIdentityRepository{
 		Client:    client,
@@ -131,6 +158,13 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 		},
 	}
 
+	clientRepository := &oauth2.DynamoDBClientRepository{
+		Client: client,
+		Table:  aws.String("test_entities_table"),
+	}
+
+	clientService := oauth2.ClientService{Repo: clientRepository}
+
 	keyRepo := keys.NewInMemoryRepository()
 	keyService := keys.NewService(keyRepo)
 
@@ -139,6 +173,7 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 
 	authorizeService := &oauth2.AuthorizeService{
 		IdentityStore: identityStore,
+		ClientStore:   clientRepository,
 		KeyService:    keyService,
 		Issuer:        "https://test.issuer.com",
 		TokenExpiry:   5,
@@ -150,10 +185,9 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 	}
 
 	authorizeHandler := &oauth2.HttpHandler{
-		Service:            authorizeService,
-		AuthService:        authService,
-		LoginURL:           "https://auth.test.com/login",
-		DefaultRedirectURI: "https://auth.test.com",
+		Service:     authorizeService,
+		AuthService: authService,
+		LoginURL:    "https://auth.test.com/login",
 	}
 
 	return &oauth2Module{
@@ -161,9 +195,11 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 		authorizeHandler:   authorizeHandler,
 		sessionService:     sessionService,
 		identityService:    identityService,
+		clientService:      clientService,
 		keyService:         keyService,
 		identityRepository: identityStore,
 		sessionRepository:  sessionStore,
+		clientRepository:   clientRepository,
 	}
 }
 
@@ -224,11 +260,104 @@ func TestAuthorizeServiceAuthorizeHappyPath(t *testing.T) {
 	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
+	clientResult, err := module.clientService.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	result, err := module.authorizeService.Authorize(ctx, ident.Id, "test-client")
+	result, err := module.authorizeService.Authorize(ctx, ident.Id, string(clientResult.Client.Id))
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.IDToken)
 	assert.NotNil(t, result)
+}
+
+func TestValidateClientRedirectUnregisteredClient(t *testing.T) {
+	module := setupOAuth2Module(t)
+
+	params := oauth2.AuthorizationParams{
+		ClientId:    "nonexistent-client-id",
+		RedirectURI: "https://example.com/callback",
+	}
+
+	_, _, err := module.authorizeService.ValidateClientRedirect(context.Background(), params)
+	assert.ErrorIs(t, err, oauth2.ErrUnauthorizedClient)
+}
+
+func TestValidateClientRedirectRedirectURIDomainMismatch(t *testing.T) {
+	module := setupOAuth2Module(t)
+
+	_, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	params := oauth2.AuthorizationParams{
+		ClientId:    string(clientResult.Client.Id),
+		RedirectURI: "https://evil.com/callback",
+	}
+
+	_, _, err = module.authorizeService.ValidateClientRedirect(context.Background(), params)
+	assert.ErrorIs(t, err, oauth2.ErrRedirectURIMismatch)
+}
+
+func TestValidateClientRedirectUsesRegisteredURIAsFallback(t *testing.T) {
+	module := setupOAuth2Module(t)
+
+	_, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	params := oauth2.AuthorizationParams{
+		ClientId:    string(clientResult.Client.Id),
+		RedirectURI: "",
+	}
+
+	client, redirectURI, err := module.authorizeService.ValidateClientRedirect(context.Background(), params)
+	assert.NoError(t, err)
+	assert.Equal(t, clientResult.Client.Id, client.Id)
+	assert.Equal(t, "https://example.com/callback", redirectURI)
+}
+
+func TestValidateClientRedirectSubdomainAllowed(t *testing.T) {
+	module := setupOAuth2Module(t)
+
+	_, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	params := oauth2.AuthorizationParams{
+		ClientId:    string(clientResult.Client.Id),
+		RedirectURI: "https://sub.example.com/callback",
+	}
+
+	client, redirectURI, err := module.authorizeService.ValidateClientRedirect(context.Background(), params)
+	assert.NoError(t, err)
+	assert.Equal(t, clientResult.Client.Id, client.Id)
+	assert.Equal(t, "https://sub.example.com/callback", redirectURI)
 }

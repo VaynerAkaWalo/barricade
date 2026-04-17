@@ -61,10 +61,10 @@ func main() {
 		},
 	}
 
+	clientService := oauth2.ClientService{Repo: clientRepository}
+
 	clientHandler := oauth2.ClientHttpHandler{
-		ClientService: oauth2.ClientService{
-			Repo: clientRepository,
-		},
+		ClientService: clientService,
 	}
 
 	sessionService := authentication.SessionService{
@@ -89,16 +89,16 @@ func main() {
 
 	authorizeService := oauth2.AuthorizeService{
 		IdentityStore: identityRepository,
+		ClientStore:   clientRepository,
 		KeyService:    keyService,
 		Issuer:        cfg.IssuerURL,
 		TokenExpiry:   cfg.TokenExpiryMinutes,
 	}
 
 	authorizeHandler := oauth2.HttpHandler{
-		Service:            &authorizeService,
-		AuthService:        &authNService,
-		LoginURL:           cfg.LoginURL,
-		DefaultRedirectURI: cfg.IssuerURL,
+		Service:     &authorizeService,
+		AuthService: &authNService,
+		LoginURL:    cfg.LoginURL,
 	}
 
 	authenticator := xhttp.NewAuthenticator(

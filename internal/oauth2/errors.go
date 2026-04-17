@@ -9,6 +9,8 @@ var (
 	ErrInvalidRedirectURI              = errors.New("invalid redirect uri")
 	ErrServerError                     = errors.New("server error")
 	ErrLoginRequired                   = errors.New("login required")
+	ErrUnauthorizedClient              = errors.New("unauthorized client")
+	ErrRedirectURIMismatch             = errors.New("redirect uri mismatch")
 	ErrClientNotFound                  = errors.New("client not found")
 	ErrClientEmptyOwnerId              = errors.New("client owner id cannot be empty")
 	ErrClientEmptyName                 = errors.New("client name cannot be empty")
