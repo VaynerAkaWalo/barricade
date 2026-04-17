@@ -11,32 +11,37 @@ import (
 )
 
 type clientDDB struct {
-	Id          string `dynamodbav:"id"`
-	Type        string `dynamodbav:"type"`
-	Name        string `dynamodbav:"name"`
-	Domain      string `dynamodbav:"domain"`
-	SecretHash  []byte `dynamodbav:"secret"`
-	RedirectURI string `dynamodbav:"redirectURI"`
-	CreatedAt   int64  `dynamodbav:"createdAt"`
-	UpdatedAt   int64  `dynamodbav:"updatedAt"`
+	Id                string `dynamodbav:"id"`
+	Type              string `dynamodbav:"type"`
+	SecondaryLookup   string `dynamodbav:"secondary-lookup"`
+	SecondaryLookupSk string `dynamodbav:"secondary-lookup-sk"`
+	Name              string `dynamodbav:"name"`
+	Domain            string `dynamodbav:"domain"`
+	SecretHash        []byte `dynamodbav:"secret"`
+	RedirectURI       string `dynamodbav:"redirectURI"`
+	CreatedAt         int64  `dynamodbav:"createdAt"`
+	UpdatedAt         int64  `dynamodbav:"updatedAt"`
 }
 
 func convertClientToDB(c *Client) *clientDDB {
 	return &clientDDB{
-		Id:          string(c.Id),
-		Type:        "oauth-client",
-		Name:        c.Name,
-		Domain:      c.Domain,
-		SecretHash:  c.SecretHash,
-		RedirectURI: c.RedirectURI,
-		CreatedAt:   c.CreatedAt,
-		UpdatedAt:   c.UpdatedAt,
+		Id:                string(c.Id),
+		Type:              "oauth-client",
+		SecondaryLookup:   c.OwnerId,
+		SecondaryLookupSk: "oauth-client",
+		Name:              c.Name,
+		Domain:            c.Domain,
+		SecretHash:        c.SecretHash,
+		RedirectURI:       c.RedirectURI,
+		CreatedAt:         c.CreatedAt,
+		UpdatedAt:         c.UpdatedAt,
 	}
 }
 
 func convertClientFromDB(db *clientDDB) *Client {
 	return &Client{
 		Id:          ClientId(db.Id),
+		OwnerId:     db.SecondaryLookup,
 		Name:        db.Name,
 		Domain:      db.Domain,
 		SecretHash:  db.SecretHash,

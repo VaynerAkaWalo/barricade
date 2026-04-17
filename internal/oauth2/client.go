@@ -17,6 +17,7 @@ type (
 
 	Client struct {
 		Id          ClientId
+		OwnerId     string
 		Name        string
 		Domain      string
 		SecretHash  []byte
@@ -26,7 +27,10 @@ type (
 	}
 )
 
-func NewClient(name string, domain string, redirectURI string) (*Client, ClientSecret, error) {
+func NewClient(ownerId string, name string, domain string, redirectURI string) (*Client, ClientSecret, error) {
+	if ownerId == "" {
+		return nil, "", ErrClientEmptyOwnerId
+	}
 	if name == "" {
 		return nil, "", ErrClientEmptyName
 	}
@@ -60,6 +64,7 @@ func NewClient(name string, domain string, redirectURI string) (*Client, ClientS
 
 	return &Client{
 		Id:          ClientId(uuid.Must(uuid.NewV7()).String()),
+		OwnerId:     ownerId,
 		Name:        name,
 		Domain:      domain,
 		SecretHash:  hash,

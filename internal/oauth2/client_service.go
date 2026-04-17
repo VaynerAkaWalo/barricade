@@ -8,6 +8,7 @@ type ClientRepository interface {
 }
 
 type RegisterClientParams struct {
+	OwnerId     string
 	Name        string
 	Domain      string
 	RedirectURI string
@@ -23,7 +24,7 @@ type ClientService struct {
 }
 
 func (s *ClientService) Register(ctx context.Context, params RegisterClientParams) (*RegisterClientResult, error) {
-	c, secret, err := NewClient(params.Name, params.Domain, params.RedirectURI)
+	c, secret, err := NewClient(params.OwnerId, params.Name, params.Domain, params.RedirectURI)
 	if err != nil {
 		return nil, err
 	}

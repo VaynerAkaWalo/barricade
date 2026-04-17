@@ -13,6 +13,7 @@ import (
 )
 
 const (
+	TEST_CLIENT_OWNER_ID    = "01234567-89ab-cdef-0123-456789abcdef"
 	TEST_CLIENT_NAME         = "test-app"
 	TEST_CLIENT_DOMAIN       = "example.com"
 	TEST_CLIENT_REDIRECT_URI = "https://example.com/callback"
@@ -62,10 +63,23 @@ func setupClientModule(t *testing.T) *clientModule {
 	}
 }
 
+func TestClientRegisterEmptyOwnerId(t *testing.T) {
+	module := setupClientModule(t)
+
+	_, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     "",
+		Name:        TEST_CLIENT_NAME,
+		Domain:      TEST_CLIENT_DOMAIN,
+		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+	})
+	assert.ErrorIs(t, err, oauth2.ErrClientEmptyOwnerId)
+}
+
 func TestClientRegisterInputValidation(t *testing.T) {
 	module := setupClientModule(t)
 
 	_, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        "",
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
@@ -73,6 +87,7 @@ func TestClientRegisterInputValidation(t *testing.T) {
 	assert.ErrorIs(t, err, oauth2.ErrClientEmptyName)
 
 	_, err = module.service.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      "",
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
@@ -80,6 +95,7 @@ func TestClientRegisterInputValidation(t *testing.T) {
 	assert.ErrorIs(t, err, oauth2.ErrClientEmptyDomain)
 
 	_, err = module.service.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: "",
@@ -91,6 +107,7 @@ func TestClientRegisterInvalidRedirectURI(t *testing.T) {
 	module := setupClientModule(t)
 
 	_, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: "not-a-url",
@@ -102,6 +119,7 @@ func TestClientRegisterRedirectURIDomainMismatch(t *testing.T) {
 	module := setupClientModule(t)
 
 	_, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: "https://other.com/callback",
@@ -113,6 +131,7 @@ func TestClientRegisterSubdomainAllowed(t *testing.T) {
 	module := setupClientModule(t)
 
 	result, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: "https://sub.example.com/callback",
@@ -125,6 +144,7 @@ func TestClientRegisterHappyPath(t *testing.T) {
 	module := setupClientModule(t)
 
 	result, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
@@ -132,6 +152,7 @@ func TestClientRegisterHappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, TEST_CLIENT_NAME, result.Client.Name)
+	assert.Equal(t, TEST_CLIENT_OWNER_ID, result.Client.OwnerId)
 	assert.Equal(t, TEST_CLIENT_DOMAIN, result.Client.Domain)
 	assert.Equal(t, TEST_CLIENT_REDIRECT_URI, result.Client.RedirectURI)
 	assert.NotEmpty(t, result.Client.Id)

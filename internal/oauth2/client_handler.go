@@ -30,6 +30,11 @@ func (h *ClientHttpHandler) RegisterRoutes(router *xhttp.Router) {
 }
 
 func (h *ClientHttpHandler) Register(w http.ResponseWriter, r *http.Request) error {
+	ownerId, ok := r.Context().Value(xhttp.UserId).(string)
+	if !ok || ownerId == "" {
+		return xhttp.NewError("unauthorized", http.StatusUnauthorized)
+	}
+
 	var request registerClientRequest
 
 	err := json.NewDecoder(r.Body).Decode(&request)
@@ -38,6 +43,7 @@ func (h *ClientHttpHandler) Register(w http.ResponseWriter, r *http.Request) err
 	}
 
 	result, err := h.ClientService.Register(r.Context(), RegisterClientParams{
+		OwnerId:     ownerId,
 		Name:        request.Name,
 		Domain:      request.Domain,
 		RedirectURI: request.RedirectURI,
@@ -54,6 +60,8 @@ func (h *ClientHttpHandler) Register(w http.ResponseWriter, r *http.Request) err
 
 func mapClientError(ctx context.Context, err error) error {
 	switch {
+	case errors.Is(err, ErrClientEmptyOwnerId):
+		return xhttp.NewError("unauthorized", http.StatusUnauthorized)
 	case errors.Is(err, ErrClientEmptyName):
 		return xhttp.NewError("name is required", http.StatusBadRequest)
 	case errors.Is(err, ErrClientEmptyDomain):

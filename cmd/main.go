@@ -105,7 +105,7 @@ func main() {
 		ihttp.BarricadeAuthenticationProvider{
 			AuthenticationService: authNService,
 		},
-		[]string{"GET /health", "POST /v1/login", "POST /v1/register", "POST /v1/oauth2/clients", "GET /.well-known/jwks.json", "GET /v1/oauth2/authorize"}...)
+		[]string{"GET /health", "POST /v1/login", "POST /v1/register", "GET /.well-known/jwks.json", "GET /v1/oauth2/authorize"}...)
 
 	httpServer := xhttp.Server{
 		Addr:     ":8080",
