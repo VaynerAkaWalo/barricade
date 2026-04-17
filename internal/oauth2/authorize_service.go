@@ -5,6 +5,8 @@ import (
 	"barricade/internal/keys"
 	"barricade/internal/oidc"
 	"context"
+	"errors"
+	"net/url"
 	"strings"
 )
 
@@ -27,6 +29,7 @@ type (
 		ResponseType string
 		ClientId     string
 		Scope        string
+		RedirectURI  string
 	}
 
 	AuthorizationResult struct {
@@ -35,11 +38,38 @@ type (
 
 	AuthorizeService struct {
 		IdentityStore IdentityRepository
+		ClientStore   ClientRepository
 		KeyService    *keys.Service
 		Issuer        string
 		TokenExpiry   int
 	}
 )
+
+func (s *AuthorizeService) ValidateClientRedirect(ctx context.Context, params AuthorizationParams) (*Client, string, error) {
+	client, err := s.ClientStore.FindById(ctx, ClientId(params.ClientId))
+	if err != nil {
+		if errors.Is(err, ErrClientNotFound) {
+			return nil, "", ErrUnauthorizedClient
+		}
+		return nil, "", err
+	}
+
+	redirectURI := params.RedirectURI
+	if redirectURI == "" {
+		redirectURI = client.RedirectURI
+	}
+
+	parsedURI, err := url.ParseRequestURI(redirectURI)
+	if err != nil {
+		return nil, "", ErrInvalidRedirectURI
+	}
+
+	if !isRedirectDomainMatch(parsedURI.Hostname(), client.Domain) {
+		return nil, "", ErrRedirectURIMismatch
+	}
+
+	return client, redirectURI, nil
+}
 
 func (s *AuthorizeService) Validate(params AuthorizationParams) error {
 	if params.ResponseType == "" {

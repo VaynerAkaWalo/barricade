@@ -14,10 +14,9 @@ import (
 )
 
 type HttpHandler struct {
-	Service            *AuthorizeService
-	AuthService        *authentication.Service
-	LoginURL           string
-	DefaultRedirectURI string
+	Service     *AuthorizeService
+	AuthService *authentication.Service
+	LoginURL    string
 }
 
 func (h *HttpHandler) RegisterRoutes(router *xhttp.Router) {
@@ -31,17 +30,16 @@ func (h *HttpHandler) Authorize(w http.ResponseWriter, r *http.Request) error {
 		ResponseType: r.URL.Query().Get("response_type"),
 		ClientId:     r.URL.Query().Get("client_id"),
 		Scope:        r.URL.Query().Get("scope"),
+		RedirectURI:  r.URL.Query().Get("redirect_uri"),
 	}
 
-	redirectURI := r.URL.Query().Get("redirect_uri")
-	if redirectURI == "" {
-		redirectURI = h.DefaultRedirectURI
+	if params.ClientId == "" {
+		return xhttp.NewError("invalid request: missing client_id", http.StatusBadRequest)
 	}
 
-	if err := validateRedirectURI(redirectURI); err != nil {
-		redirectURL := buildErrorRedirectURL(redirectURI, mapErrorToCode(err), err.Error())
-		http.Redirect(w, r, redirectURL, http.StatusFound)
-		return nil
+	_, redirectURI, err := h.Service.ValidateClientRedirect(ctx, params)
+	if err != nil {
+		return mapAuthorizeError(err)
 	}
 
 	if err := h.Service.Validate(params); err != nil {
@@ -99,16 +97,6 @@ func (h *HttpHandler) buildLoginRedirectURL(r *http.Request) string {
 	return u.String()
 }
 
-func validateRedirectURI(redirectURI string) error {
-	if redirectURI == "" {
-		return ErrInvalidRequest
-	}
-	if _, err := url.ParseRequestURI(redirectURI); err != nil {
-		return ErrInvalidRedirectURI
-	}
-	return nil
-}
-
 func buildSuccessRedirectURL(redirectURI string, result *AuthorizationResult, tokenExpiry int) string {
 	u, err := url.Parse(redirectURI)
 	if err != nil {
@@ -154,5 +142,20 @@ func mapErrorToCode(err error) string {
 		return "invalid_request"
 	default:
 		return "server_error"
+	}
+}
+
+func mapAuthorizeError(err error) error {
+	switch {
+	case errors.Is(err, ErrInvalidRequest), errors.Is(err, ErrUnsupportedResponseType),
+		errors.Is(err, ErrInvalidScope), errors.Is(err, ErrInvalidRedirectURI):
+		return xhttp.NewError(mapErrorToCode(err), http.StatusBadRequest)
+	case errors.Is(err, ErrUnauthorizedClient):
+		return xhttp.NewError("unauthorized client", http.StatusUnauthorized)
+	case errors.Is(err, ErrRedirectURIMismatch):
+		return xhttp.NewError("redirect uri mismatch", http.StatusBadRequest)
+	default:
+		slog.Error("authorize error", "error", err)
+		return xhttp.NewError("server_error", http.StatusInternalServerError)
 	}
 }
