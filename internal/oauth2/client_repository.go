@@ -2,17 +2,23 @@ package oauth2
 
 import (
 	"context"
+	"hash/crc32"
 	"os"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+const shardCount = 4
+
 type clientDDB struct {
 	Id                string `dynamodbav:"id"`
 	Type              string `dynamodbav:"type"`
+	ShardedType       string `dynamodbav:"sharded-type"`
 	SecondaryLookup   string `dynamodbav:"secondary-lookup"`
 	SecondaryLookupSk string `dynamodbav:"secondary-lookup-sk"`
 	Name              string `dynamodbav:"name"`
@@ -23,10 +29,16 @@ type clientDDB struct {
 	UpdatedAt         int64  `dynamodbav:"updatedAt"`
 }
 
+func computeShard(id ClientId) string {
+	sum := crc32.ChecksumIEEE([]byte(id))
+	return "oauth-client#" + strconv.Itoa(int(sum)%shardCount)
+}
+
 func convertClientToDB(c *Client) *clientDDB {
 	return &clientDDB{
 		Id:                string(c.Id),
 		Type:              "oauth-client",
+		ShardedType:       computeShard(c.Id),
 		SecondaryLookup:   c.OwnerId,
 		SecondaryLookupSk: "oauth-client",
 		Name:              c.Name,
@@ -59,14 +71,16 @@ func clientKey(id ClientId) map[string]types.AttributeValue {
 }
 
 type DynamoDBClientRepository struct {
-	Client *dynamodb.Client
-	Table  *string
+	Client           *dynamodb.Client
+	Table            *string
+	ShardedTypeIndex *string
 }
 
 func NewClientRepository(cfg aws.Config) *DynamoDBClientRepository {
 	return &DynamoDBClientRepository{
-		Client: dynamodb.NewFromConfig(cfg),
-		Table:  aws.String(os.Getenv("CLIENT_TABLE_NAME")),
+		Client:           dynamodb.NewFromConfig(cfg),
+		Table:            aws.String(os.Getenv("CLIENT_TABLE_NAME")),
+		ShardedTypeIndex: aws.String("sharded-type-index"),
 	}
 }
 
@@ -105,4 +119,39 @@ func (r *DynamoDBClientRepository) FindById(ctx context.Context, id ClientId) (*
 	}
 
 	return convertClientFromDB(&dbEntity), nil
+}
+
+func (r *DynamoDBClientRepository) FindAll(ctx context.Context) ([]*Client, error) {
+	var result []*Client
+
+	for i := 0; i < shardCount; i++ {
+		shard := "oauth-client#" + strconv.Itoa(i)
+		keyEx := expression.Key("sharded-type").Equal(expression.Value(shard))
+		expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
+		if err != nil {
+			return nil, err
+		}
+
+		output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 r.Table,
+			IndexName:                 r.ShardedTypeIndex,
+			KeyConditionExpression:    expr.KeyCondition(),
+			ExpressionAttributeNames:  expr.Names(),
+			ExpressionAttributeValues: expr.Values(),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, item := range output.Items {
+			var dbEntity clientDDB
+			err = attributevalue.UnmarshalMap(item, &dbEntity)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, convertClientFromDB(&dbEntity))
+		}
+	}
+
+	return result, nil
 }

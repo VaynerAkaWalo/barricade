@@ -47,6 +47,28 @@ func setupClientModule(t *testing.T) *clientModule {
 				AttributeName: aws.String("type"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
+			{
+				AttributeName: aws.String("sharded-type"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+			{
+				IndexName: aws.String("sharded-type-index"),
+				KeySchema: []types.KeySchemaElement{
+					{
+						AttributeName: aws.String("sharded-type"),
+						KeyType:       types.KeyTypeHash,
+					},
+					{
+						AttributeName: aws.String("id"),
+						KeyType:       types.KeyTypeRange,
+					},
+				},
+				Projection: &types.Projection{
+					ProjectionType: types.ProjectionTypeAll,
+				},
+			},
 		},
 		BillingMode: types.BillingModePayPerRequest,
 	}
@@ -54,8 +76,9 @@ func setupClientModule(t *testing.T) *clientModule {
 	ddbClient := itest.SetupDynamo(t, entitiesTable)
 
 	clientRepo := &DynamoDBClientRepository{
-		Client: ddbClient,
-		Table:  aws.String("test_entities_table"),
+		Client:           ddbClient,
+		Table:            aws.String("test_entities_table"),
+		ShardedTypeIndex: aws.String("sharded-type-index"),
 	}
 
 	return &clientModule{
@@ -172,4 +195,36 @@ func TestClientFindByIdNotFound(t *testing.T) {
 
 	_, err := module.repository.FindById(context.Background(), ClientId("nonexistent"))
 	assert.ErrorIs(t, err, ErrClientNotFound)
+}
+
+func TestClientFindAllHappyPath(t *testing.T) {
+	module := setupClientModule(t)
+
+	_, err := module.service.Register(context.Background(), RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        "app-1",
+		Domain:      TEST_CLIENT_DOMAIN,
+		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+	})
+	assert.NoError(t, err)
+
+	_, err = module.service.Register(context.Background(), RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        "app-2",
+		Domain:      TEST_CLIENT_DOMAIN,
+		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+	})
+	assert.NoError(t, err)
+
+	_, err = module.service.Register(context.Background(), RegisterClientParams{
+		OwnerId:     "other-owner",
+		Name:        "app-3",
+		Domain:      TEST_CLIENT_DOMAIN,
+		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+	})
+	assert.NoError(t, err)
+
+	clients, err := module.service.FindAll(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, clients, 3)
 }

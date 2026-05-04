@@ -21,12 +21,22 @@ type registerClientResponse struct {
 	ClientSecret string `json:"clientSecret"`
 }
 
+type listClientResponse struct {
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Domain      string `json:"domain"`
+	RedirectURI string `json:"redirectURI"`
+	CreatedAt   int64  `json:"createdAt"`
+	UpdatedAt   int64  `json:"updatedAt"`
+}
+
 type ClientHttpHandler struct {
 	ClientService ClientService
 }
 
 func (h *ClientHttpHandler) RegisterRoutes(router *xhttp.Router) {
 	router.RegisterHandler("POST /v1/oauth2/clients", h.Register)
+	router.RegisterHandler("GET /v1/oauth2/clients", h.List)
 }
 
 func (h *ClientHttpHandler) Register(w http.ResponseWriter, r *http.Request) error {
@@ -56,6 +66,35 @@ func (h *ClientHttpHandler) Register(w http.ResponseWriter, r *http.Request) err
 		ClientId:     string(result.Client.Id),
 		ClientSecret: string(result.ClientSecret),
 	})
+}
+
+func (h *ClientHttpHandler) List(w http.ResponseWriter, r *http.Request) error {
+	ownerId, ok := r.Context().Value(xhttp.UserId).(string)
+	if !ok || ownerId == "" {
+		return xhttp.NewError("unauthorized", http.StatusUnauthorized)
+	}
+
+	clients, err := h.ClientService.FindAll(r.Context())
+	if err != nil {
+		return mapClientError(r.Context(), err)
+	}
+
+	var response []listClientResponse
+	for _, c := range clients {
+		if c.OwnerId != ownerId {
+			continue
+		}
+		response = append(response, listClientResponse{
+			Id:          string(c.Id),
+			Name:        c.Name,
+			Domain:      c.Domain,
+			RedirectURI: c.RedirectURI,
+			CreatedAt:   c.CreatedAt,
+			UpdatedAt:   c.UpdatedAt,
+		})
+	}
+
+	return xhttp.WriteResponse(w, http.StatusOK, response)
 }
 
 func mapClientError(ctx context.Context, err error) error {

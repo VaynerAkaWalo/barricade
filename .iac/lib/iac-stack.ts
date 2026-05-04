@@ -30,6 +30,18 @@ export class IacStack extends cdk.Stack {
       },
     });
 
+    entitiesTable.addGlobalSecondaryIndex({
+      indexName: "sharded-type-index",
+      partitionKey: {
+        name: "sharded-type",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: "id",
+        type: dynamodb.AttributeType.STRING,
+      },
+    });
+
     const operationalTable = new dynamodb.Table(
       this,
       "OperationalEntitiesTable",
