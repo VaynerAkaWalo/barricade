@@ -5,6 +5,7 @@ import "context"
 type ClientRepository interface {
 	Save(ctx context.Context, client *Client) error
 	FindById(ctx context.Context, id ClientId) (*Client, error)
+	FindAll(ctx context.Context) ([]*Client, error)
 }
 
 type RegisterClientParams struct {
@@ -42,4 +43,8 @@ func (s *ClientService) Register(ctx context.Context, params RegisterClientParam
 
 func (s *ClientService) FindById(ctx context.Context, id ClientId) (*Client, error) {
 	return s.Repo.FindById(ctx, id)
+}
+
+func (s *ClientService) FindAll(ctx context.Context) ([]*Client, error) {
+	return s.Repo.FindAll(ctx)
 }

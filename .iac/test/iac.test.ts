@@ -70,6 +70,21 @@ describe("IacStack", () => {
         ]),
       });
     });
+
+    it("has the sharded type GSI", () => {
+      template.hasResourceProperties("AWS::DynamoDB::Table", {
+        GlobalSecondaryIndexes: Match.arrayWith([
+          Match.objectLike({
+            IndexName: "sharded-type-index",
+            KeySchema: [
+              { AttributeName: "sharded-type", KeyType: "HASH" },
+              { AttributeName: "id", KeyType: "RANGE" },
+            ],
+            Projection: { ProjectionType: "ALL" },
+          }),
+        ]),
+      });
+    });
   });
 
   describe("OperationalEntitiesTable", () => {
