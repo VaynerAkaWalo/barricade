@@ -1,4 +1,4 @@
-package test
+package identity
 
 import (
 	"context"
@@ -6,8 +6,6 @@ import (
 	"log"
 	"testing"
 	"time"
-
-	"barricade/internal/identity"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -26,8 +24,8 @@ const (
 )
 
 type identityModule struct {
-	service    identity.Service
-	repository identity.Repository
+	service    Service
+	repository Repository
 }
 
 func setupModule(t *testing.T) *identityModule {
@@ -80,13 +78,13 @@ func setupModule(t *testing.T) *identityModule {
 		assert.NoError(c, err, "waiting for table creation")
 	}, 30*time.Second, 1*time.Second, "Failed to create table after retries")
 
-	ddbRepository := identity.DynamoDBIdentityRepository{
+	ddbRepository := DynamoDBIdentityRepository{
 		Client: client,
 		Table:  aws.String("test_identity_table"),
 	}
 
 	return &identityModule{
-		service:    identity.Service{Repo: &ddbRepository},
+		service:    Service{Repo: &ddbRepository},
 		repository: &ddbRepository,
 	}
 }
@@ -95,10 +93,10 @@ func TestRegisterInputValidation(t *testing.T) {
 	module := setupModule(t)
 
 	_, err := module.service.Register(context.Background(), "", TEST_SECRET)
-	assert.ErrorIs(t, err, identity.ErrEmptyName)
+	assert.ErrorIs(t, err, ErrEmptyName)
 
 	_, err = module.service.Register(context.Background(), TEST_NAME, "")
-	assert.ErrorIs(t, err, identity.ErrEmptySecret)
+	assert.ErrorIs(t, err, ErrEmptySecret)
 }
 
 func TestRegisterHappyPath(t *testing.T) {

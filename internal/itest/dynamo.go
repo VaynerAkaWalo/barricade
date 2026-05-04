@@ -1,4 +1,4 @@
-package test
+package itest
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	tcdynamodb "github.com/testcontainers/testcontainers-go/modules/dynamodb"
 )
 
-func setupDynamo(t *testing.T, tables ...dynamodb.CreateTableInput) *dynamodb.Client {
+func SetupDynamo(t *testing.T, tables ...dynamodb.CreateTableInput) *dynamodb.Client {
 	ctx := context.Background()
 
 	ddb, err := tcdynamodb.Run(ctx, "amazon/dynamodb-local:latest")

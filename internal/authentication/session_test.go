@@ -1,11 +1,11 @@
-package test
+package authentication
 
 import (
 	"context"
 	"testing"
 
-	"barricade/internal/authentication"
 	"barricade/internal/identity"
+	"barricade/internal/itest"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -13,12 +13,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	TEST_NAME   = "first name"
+	TEST_SECRET = "changeIt"
+)
+
 type sessionModule struct {
-	sessionService              authentication.SessionService
-	sessionStore                authentication.SessionRepository
-	authenticationService       authentication.Service
-	authenticationIdentityStore authentication.IdentityRepository
-	identityService             identity.Service
+	sessionService        SessionService
+	sessionStore          SessionRepository
+	authenticationService Service
+	authenticationStore   IdentityRepository
+	identityService       identity.Service
 }
 
 func setupSessionModule(t *testing.T) *sessionModule {
@@ -101,7 +106,7 @@ func setupSessionModule(t *testing.T) *sessionModule {
 		BillingMode: types.BillingModePayPerRequest,
 	}
 
-	client := setupDynamo(t, sessionTable, identityTable)
+	client := itest.SetupDynamo(t, sessionTable, identityTable)
 
 	identityStore := &identity.DynamoDBIdentityRepository{
 		Client:    client,
@@ -109,13 +114,13 @@ func setupSessionModule(t *testing.T) *sessionModule {
 		NameIndex: aws.String("name-index"),
 	}
 
-	sessionStore := &authentication.DynamoDBSessionRepository{
+	sessionStore := &DynamoDBSessionRepository{
 		Client:    client,
 		Table:     aws.String("test_session_table"),
 		NameIndex: aws.String("secondary-lookup-index"),
 	}
 
-	sessionService := authentication.SessionService{
+	sessionService := SessionService{
 		SessionStore:  sessionStore,
 		IdentityStore: identityStore,
 	}
@@ -127,17 +132,17 @@ func setupSessionModule(t *testing.T) *sessionModule {
 		},
 	}
 
-	authenticationService := authentication.Service{
+	authenticationService := Service{
 		IdentityStore: identityStore,
 		SessionStore:  sessionStore,
 	}
 
 	return &sessionModule{
-		sessionService:              sessionService,
-		identityService:             identityService,
-		sessionStore:                sessionStore,
-		authenticationIdentityStore: identityStore,
-		authenticationService:       authenticationService,
+		sessionService:        sessionService,
+		identityService:       identityService,
+		sessionStore:          sessionStore,
+		authenticationStore:   identityStore,
+		authenticationService: authenticationService,
 	}
 }
 
@@ -145,7 +150,7 @@ func TestLoginUnknownUser(t *testing.T) {
 	module := setupSessionModule(t)
 
 	_, err := module.sessionService.CreateOrGetSessionForCredentials(context.Background(), "unknown name", TEST_SECRET)
-	assert.ErrorIs(t, err, authentication.ErrInvalidCredentials)
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
 }
 
 func TestLoginInvalidPassword(t *testing.T) {
@@ -155,7 +160,7 @@ func TestLoginInvalidPassword(t *testing.T) {
 	assert.NoError(t, err)
 
 	_, err = module.sessionService.CreateOrGetSessionForCredentials(context.Background(), TEST_NAME, "invalid secret")
-	assert.ErrorIs(t, err, authentication.ErrInvalidCredentials)
+	assert.ErrorIs(t, err, ErrInvalidCredentials)
 }
 
 func TestLoginHappyPath(t *testing.T) {
@@ -175,10 +180,10 @@ func TestAuthenticateBySessionInvalidSessionId(t *testing.T) {
 	module := setupSessionModule(t)
 
 	_, err := module.authenticationService.AuthenticateBySession(context.Background(), "")
-	assert.ErrorIs(t, err, authentication.ErrEmptySessionId)
+	assert.ErrorIs(t, err, ErrEmptySessionId)
 
 	_, err = module.authenticationService.AuthenticateBySession(context.Background(), "unknown session")
-	assert.ErrorIs(t, err, authentication.ErrSessionNotFound)
+	assert.ErrorIs(t, err, ErrSessionNotFound)
 }
 
 func TestAuthenticateBySessionHappyPath(t *testing.T) {

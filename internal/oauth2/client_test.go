@@ -1,9 +1,10 @@
-package test
+package oauth2
 
 import (
-	"barricade/internal/oauth2"
 	"context"
 	"testing"
+
+	"barricade/internal/itest"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -13,15 +14,15 @@ import (
 )
 
 const (
-	TEST_CLIENT_OWNER_ID    = "01234567-89ab-cdef-0123-456789abcdef"
+	TEST_CLIENT_OWNER_ID     = "01234567-89ab-cdef-0123-456789abcdef"
 	TEST_CLIENT_NAME         = "test-app"
 	TEST_CLIENT_DOMAIN       = "example.com"
 	TEST_CLIENT_REDIRECT_URI = "https://example.com/callback"
 )
 
 type clientModule struct {
-	service    oauth2.ClientService
-	repository oauth2.ClientRepository
+	service    ClientService
+	repository ClientRepository
 }
 
 func setupClientModule(t *testing.T) *clientModule {
@@ -50,15 +51,15 @@ func setupClientModule(t *testing.T) *clientModule {
 		BillingMode: types.BillingModePayPerRequest,
 	}
 
-	ddbClient := setupDynamo(t, entitiesTable)
+	ddbClient := itest.SetupDynamo(t, entitiesTable)
 
-	clientRepo := &oauth2.DynamoDBClientRepository{
+	clientRepo := &DynamoDBClientRepository{
 		Client: ddbClient,
 		Table:  aws.String("test_entities_table"),
 	}
 
 	return &clientModule{
-		service:    oauth2.ClientService{Repo: clientRepo},
+		service:    ClientService{Repo: clientRepo},
 		repository: clientRepo,
 	}
 }
@@ -66,71 +67,71 @@ func setupClientModule(t *testing.T) *clientModule {
 func TestClientRegisterEmptyOwnerId(t *testing.T) {
 	module := setupClientModule(t)
 
-	_, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+	_, err := module.service.Register(context.Background(), RegisterClientParams{
 		OwnerId:     "",
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
 	})
-	assert.ErrorIs(t, err, oauth2.ErrClientEmptyOwnerId)
+	assert.ErrorIs(t, err, ErrClientEmptyOwnerId)
 }
 
 func TestClientRegisterInputValidation(t *testing.T) {
 	module := setupClientModule(t)
 
-	_, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+	_, err := module.service.Register(context.Background(), RegisterClientParams{
 		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        "",
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
 	})
-	assert.ErrorIs(t, err, oauth2.ErrClientEmptyName)
+	assert.ErrorIs(t, err, ErrClientEmptyName)
 
-	_, err = module.service.Register(context.Background(), oauth2.RegisterClientParams{
+	_, err = module.service.Register(context.Background(), RegisterClientParams{
 		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      "",
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
 	})
-	assert.ErrorIs(t, err, oauth2.ErrClientEmptyDomain)
+	assert.ErrorIs(t, err, ErrClientEmptyDomain)
 
-	_, err = module.service.Register(context.Background(), oauth2.RegisterClientParams{
+	_, err = module.service.Register(context.Background(), RegisterClientParams{
 		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: "",
 	})
-	assert.ErrorIs(t, err, oauth2.ErrClientEmptyRedirectURI)
+	assert.ErrorIs(t, err, ErrClientEmptyRedirectURI)
 }
 
 func TestClientRegisterInvalidRedirectURI(t *testing.T) {
 	module := setupClientModule(t)
 
-	_, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+	_, err := module.service.Register(context.Background(), RegisterClientParams{
 		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: "not-a-url",
 	})
-	assert.ErrorIs(t, err, oauth2.ErrClientInvalidRedirectURI)
+	assert.ErrorIs(t, err, ErrClientInvalidRedirectURI)
 }
 
 func TestClientRegisterRedirectURIDomainMismatch(t *testing.T) {
 	module := setupClientModule(t)
 
-	_, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+	_, err := module.service.Register(context.Background(), RegisterClientParams{
 		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: "https://other.com/callback",
 	})
-	assert.ErrorIs(t, err, oauth2.ErrClientRedirectURIDomainMismatch)
+	assert.ErrorIs(t, err, ErrClientRedirectURIDomainMismatch)
 }
 
 func TestClientRegisterSubdomainAllowed(t *testing.T) {
 	module := setupClientModule(t)
 
-	result, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+	result, err := module.service.Register(context.Background(), RegisterClientParams{
 		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
@@ -143,7 +144,7 @@ func TestClientRegisterSubdomainAllowed(t *testing.T) {
 func TestClientRegisterHappyPath(t *testing.T) {
 	module := setupClientModule(t)
 
-	result, err := module.service.Register(context.Background(), oauth2.RegisterClientParams{
+	result, err := module.service.Register(context.Background(), RegisterClientParams{
 		OwnerId:     TEST_CLIENT_OWNER_ID,
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
@@ -169,6 +170,6 @@ func TestClientRegisterHappyPath(t *testing.T) {
 func TestClientFindByIdNotFound(t *testing.T) {
 	module := setupClientModule(t)
 
-	_, err := module.repository.FindById(context.Background(), oauth2.ClientId("nonexistent"))
-	assert.ErrorIs(t, err, oauth2.ErrClientNotFound)
+	_, err := module.repository.FindById(context.Background(), ClientId("nonexistent"))
+	assert.ErrorIs(t, err, ErrClientNotFound)
 }
