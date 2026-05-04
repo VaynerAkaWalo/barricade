@@ -79,7 +79,7 @@ func (h *ClientHttpHandler) List(w http.ResponseWriter, r *http.Request) error {
 		return mapClientError(r.Context(), err)
 	}
 
-	var response []listClientResponse
+	response := make([]listClientResponse, 0)
 	for _, c := range clients {
 		if c.OwnerId != ownerId {
 			continue
