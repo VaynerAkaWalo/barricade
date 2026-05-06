@@ -14,39 +14,46 @@ import (
 )
 
 type identityDDB struct {
-	Id         string `dynamodbav:"id"`
-	Name       string `dynamodbav:"name"`
-	SecretHash []byte `dynamodbav:"secret"`
-	CreatedAt  int64  `dynamodbav:"createdAt"`
-	UpdatedAt  int64  `dynamodbav:"updatedAt"`
+	Id              string `dynamodbav:"id"`
+	Type            string `dynamodbav:"type"`
+	SecondaryLookup string `dynamodbav:"secondary-lookup"`
+	SecondaryLookupSk string `dynamodbav:"secondary-lookup-sk"`
+	Name            string `dynamodbav:"name"`
+	SecretHash      []byte `dynamodbav:"secret"`
+	CreatedAt       int64  `dynamodbav:"createdAt"`
+	UpdatedAt       int64  `dynamodbav:"updatedAt"`
 }
 
 func convertToDB(identity *Identity) *identityDDB {
 	return &identityDDB{
-		Id:         string(identity.Id),
-		Name:       identity.Name,
-		SecretHash: identity.SecretHash,
-		CreatedAt:  identity.CreatedAt,
-		UpdatedAt:  identity.UpdatedAt,
+		Id:                string(identity.Id),
+		Type:              "identity",
+		SecondaryLookup:   identity.Name,
+		SecondaryLookupSk: "identity",
+		Name:              identity.Name,
+		SecretHash:        identity.SecretHash,
+		CreatedAt:         identity.CreatedAt,
+		UpdatedAt:         identity.UpdatedAt,
 	}
 }
 
 func key(id Id) map[string]types.AttributeValue {
 	dbId, _ := attributevalue.Marshal(id)
-	return map[string]types.AttributeValue{"id": dbId}
+	dbType, _ := attributevalue.Marshal("identity")
+	return map[string]types.AttributeValue{"id": dbId, "type": dbType}
 }
 
 type DynamoDBIdentityRepository struct {
-	Client    *dynamodb.Client
-	Table     *string
-	NameIndex *string
+	Client                 *dynamodb.Client
+	Table                  *string
+	SecondaryLookupIndex   *string
 }
 
 func NewIdentityRepository(cfg aws.Config) *DynamoDBIdentityRepository {
 	return &DynamoDBIdentityRepository{
-		Client:    dynamodb.NewFromConfig(cfg),
-		Table:     aws.String(os.Getenv("IDENTITY_TABLE_NAME")),
-		NameIndex: aws.String("name-index"),
+		Client:               dynamodb.NewFromConfig(cfg),
+		Table:                aws.String(os.Getenv("ENTITIES_TABLE")),
+		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 }
 
@@ -102,7 +109,8 @@ func (r *DynamoDBIdentityRepository) FindById(ctx context.Context, id Id) (*Iden
 }
 
 func (r *DynamoDBIdentityRepository) FindByName(ctx context.Context, name string) (*Identity, error) {
-	keyEx := expression.Key("name").Equal(expression.Value(name))
+	keyEx := expression.Key("secondary-lookup").Equal(expression.Value(name)).
+		And(expression.Key("secondary-lookup-sk").Equal(expression.Value("identity")))
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("failed to build expression: %v", err))
@@ -111,7 +119,7 @@ func (r *DynamoDBIdentityRepository) FindByName(ctx context.Context, name string
 
 	output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
 		TableName:                 r.Table,
-		IndexName:                 r.NameIndex,
+		IndexName:                 r.SecondaryLookupIndex,
 		KeyConditionExpression:    expr.KeyCondition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),

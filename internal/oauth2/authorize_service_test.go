@@ -43,6 +43,10 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 				AttributeName: aws.String("id"),
 				KeyType:       types.KeyTypeHash,
 			},
+			{
+				AttributeName: aws.String("type"),
+				KeyType:       types.KeyTypeRange,
+			},
 		},
 		AttributeDefinitions: []types.AttributeDefinition{
 			{
@@ -50,11 +54,15 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			{
+				AttributeName: aws.String("type"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
 				AttributeName: aws.String("secondary-lookup"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			{
-				AttributeName: aws.String("resource-type"),
+				AttributeName: aws.String("secondary-lookup-sk"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 		},
@@ -67,7 +75,7 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 						KeyType:       types.KeyTypeHash,
 					},
 					{
-						AttributeName: aws.String("resource-type"),
+						AttributeName: aws.String("secondary-lookup-sk"),
 						KeyType:       types.KeyTypeRange,
 					},
 				},
@@ -86,6 +94,10 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 				AttributeName: aws.String("id"),
 				KeyType:       types.KeyTypeHash,
 			},
+			{
+				AttributeName: aws.String("type"),
+				KeyType:       types.KeyTypeRange,
+			},
 		},
 		AttributeDefinitions: []types.AttributeDefinition{
 			{
@@ -93,22 +105,33 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			{
-				AttributeName: aws.String("name"),
+				AttributeName: aws.String("type"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("secondary-lookup"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+			{
+				AttributeName: aws.String("secondary-lookup-sk"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 		},
 		GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
 			{
-				IndexName: aws.String("name-index"),
+				IndexName: aws.String("secondary-lookup-index"),
 				KeySchema: []types.KeySchemaElement{
 					{
-						AttributeName: aws.String("name"),
+						AttributeName: aws.String("secondary-lookup"),
 						KeyType:       types.KeyTypeHash,
+					},
+					{
+						AttributeName: aws.String("secondary-lookup-sk"),
+						KeyType:       types.KeyTypeRange,
 					},
 				},
 				Projection: &types.Projection{
-					NonKeyAttributes: []string{"id", "secret"},
-					ProjectionType:   types.ProjectionTypeInclude,
+					ProjectionType: types.ProjectionTypeAll,
 				},
 			},
 		},
@@ -166,7 +189,7 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			{
-				AttributeName: aws.String("resource-type"),
+				AttributeName: aws.String("secondary-lookup-sk"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 		},
@@ -179,7 +202,7 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 						KeyType:       types.KeyTypeHash,
 					},
 					{
-						AttributeName: aws.String("resource-type"),
+						AttributeName: aws.String("secondary-lookup-sk"),
 						KeyType:       types.KeyTypeRange,
 					},
 				},
@@ -194,15 +217,15 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 	client := itest.SetupDynamo(t, sessionTable, identityTable, entitiesTable, operationalTable)
 
 	identityStore := &identity.DynamoDBIdentityRepository{
-		Client:    client,
-		Table:     aws.String("test_identity_table"),
-		NameIndex: aws.String("name-index"),
+		Client:               client,
+		Table:                aws.String("test_identity_table"),
+		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 
 	sessionStore := &authentication.DynamoDBSessionRepository{
-		Client:    client,
-		Table:     aws.String("test_session_table"),
-		NameIndex: aws.String("secondary-lookup-index"),
+		Client:               client,
+		Table:                aws.String("test_session_table"),
+		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 
 	sessionService := authentication.SessionService{
@@ -223,9 +246,9 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 	}
 
 	authCodeRepository := &DynamoDBAuthorizationCodeRepository{
-		Client:    client,
-		Table:     aws.String("test_operational_table"),
-		NameIndex: aws.String("secondary-lookup-index"),
+		Client:               client,
+		Table:                aws.String("test_operational_table"),
+		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 
 	clientService := ClientService{Repo: clientRepository}

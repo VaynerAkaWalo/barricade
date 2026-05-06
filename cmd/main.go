@@ -40,19 +40,14 @@ func main() {
 
 	cp := credentials.NewStaticCredentialsProvider(cfg.AwsAccessKey, cfg.AwsSecretKey, "")
 
-	awsCfgLegacy, err := config.LoadDefaultConfig(context.TODO(), config.WithCredentialsProvider(cp), config.WithRegion("eu-north-1"))
+	awsCfg, err := config.LoadDefaultConfig(context.TODO(), config.WithCredentialsProvider(cp), config.WithRegion("eu-central-1"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	awsCfgProd, err := config.LoadDefaultConfig(context.TODO(), config.WithCredentialsProvider(cp), config.WithRegion("eu-central-1"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	identityRepository := identity.NewIdentityRepository(awsCfgLegacy)
-	clientRepository := oauth2.NewClientRepository(awsCfgProd)
-	authCodeRepository := oauth2.NewAuthorizationCodeRepository(awsCfgLegacy)
+	identityRepository := identity.NewIdentityRepository(awsCfg)
+	clientRepository := oauth2.NewClientRepository(awsCfg)
+	authCodeRepository := oauth2.NewAuthorizationCodeRepository(awsCfg)
 
 	keyRepo := keys.NewInMemoryRepository()
 	keyService := keys.NewService(keyRepo)
@@ -75,7 +70,7 @@ func main() {
 	}
 
 	sessionService := authentication.SessionService{
-		SessionStore:  authentication.NewSessionRepository(awsCfgLegacy),
+		SessionStore:  authentication.NewSessionRepository(awsCfg),
 		IdentityStore: identityRepository,
 	}
 

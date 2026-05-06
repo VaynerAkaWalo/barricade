@@ -8,7 +8,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
@@ -17,7 +16,7 @@ type authCodeDDB struct {
 	Id                  string `dynamodbav:"id"`
 	Type                string `dynamodbav:"type"`
 	SecondaryLookup     string `dynamodbav:"secondary-lookup"`
-	ResourceType        string `dynamodbav:"resource-type"`
+	SecondaryLookupSk   string `dynamodbav:"secondary-lookup-sk"`
 	ClientId            string `dynamodbav:"clientId"`
 	RedirectURI         string `dynamodbav:"redirectURI"`
 	Scope               string `dynamodbav:"scope"`
@@ -34,16 +33,16 @@ type AuthorizationCodeRepository interface {
 }
 
 type DynamoDBAuthorizationCodeRepository struct {
-	Client    *dynamodb.Client
-	Table     *string
-	NameIndex *string
+	Client               *dynamodb.Client
+	Table                *string
+	SecondaryLookupIndex *string
 }
 
 func NewAuthorizationCodeRepository(cfg aws.Config) *DynamoDBAuthorizationCodeRepository {
 	return &DynamoDBAuthorizationCodeRepository{
-		Client:    dynamodb.NewFromConfig(cfg),
-		Table:     aws.String(os.Getenv("SESSION_TABLE")),
-		NameIndex: aws.String(os.Getenv("SESSION_TABLE_NAME_INDEX")),
+		Client:               dynamodb.NewFromConfig(cfg),
+		Table:                aws.String(os.Getenv("OPERATIONAL_TABLE")),
+		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 }
 
@@ -52,7 +51,7 @@ func (r *DynamoDBAuthorizationCodeRepository) Save(ctx context.Context, code *Au
 		Id:                  code.Code,
 		Type:                "authorization-code",
 		SecondaryLookup:     code.IdentityId,
-		ResourceType:        "authorization-code",
+		SecondaryLookupSk:   "authorization-code",
 		ClientId:            code.ClientId,
 		RedirectURI:         code.RedirectURI,
 		Scope:               code.Scope,
@@ -76,30 +75,24 @@ func (r *DynamoDBAuthorizationCodeRepository) Save(ctx context.Context, code *Au
 }
 
 func (r *DynamoDBAuthorizationCodeRepository) FindByCode(ctx context.Context, code string) (*AuthorizationCode, error) {
-	keyEx := expression.Key("id").Equal(expression.Value(code))
-	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
-	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("failed to build expression: %v", err))
-		return nil, err
-	}
+	dbCodeId, _ := attributevalue.Marshal(code)
+	dbType, _ := attributevalue.Marshal("authorization-code")
 
-	output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
-		TableName:                 r.Table,
-		KeyConditionExpression:    expr.KeyCondition(),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		Limit:                     aws.Int32(1),
+	output, err := r.Client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName:      r.Table,
+		Key:            map[string]types.AttributeValue{"id": dbCodeId, "type": dbType},
+		ConsistentRead: aws.Bool(false),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	if len(output.Items) == 0 {
+	if len(output.Item) == 0 {
 		return nil, ErrInvalidCode
 	}
 
 	var dbCode authCodeDDB
-	err = attributevalue.UnmarshalMap(output.Items[0], &dbCode)
+	err = attributevalue.UnmarshalMap(output.Item, &dbCode)
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("failed to unmarshal authorization code: %v", err))
 		return nil, err
@@ -119,45 +112,15 @@ func (r *DynamoDBAuthorizationCodeRepository) FindByCode(ctx context.Context, co
 }
 
 func (r *DynamoDBAuthorizationCodeRepository) Delete(ctx context.Context, code string) error {
-	keyEx := expression.Key("id").Equal(expression.Value(code))
-	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
-	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("failed to build expression: %v", err))
-		return err
-	}
+	dbCodeId, _ := attributevalue.Marshal(code)
+	dbType, _ := attributevalue.Marshal("authorization-code")
 
-	output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
-		TableName:                 r.Table,
-		KeyConditionExpression:    expr.KeyCondition(),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		Limit:                     aws.Int32(1),
-	})
-	if err != nil {
-		return err
-	}
-
-	if len(output.Items) == 0 {
-		return nil
-	}
-
-	var dbCode authCodeDDB
-	err = attributevalue.UnmarshalMap(output.Items[0], &dbCode)
-	if err != nil {
-		slog.ErrorContext(ctx, fmt.Sprintf("failed to unmarshal authorization code: %v", err))
-		return err
-	}
-
-	key := map[string]types.AttributeValue{
-		"id": &types.AttributeValueMemberS{Value: dbCode.Id},
-	}
-	if dbCode.Type != "" {
-		key["type"] = &types.AttributeValueMemberS{Value: dbCode.Type}
-	}
-
-	_, err = r.Client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+	_, err := r.Client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 		TableName: r.Table,
-		Key:       key,
+		Key: map[string]types.AttributeValue{
+			"id":   dbCodeId,
+			"type": dbType,
+		},
 	})
 
 	return err

@@ -15,34 +15,36 @@ import (
 )
 
 type dbSessionAdapter struct {
-	Id           string `dynamodbav:"id"`
-	Owner        string `dynamodbav:"secondary-lookup"`
-	ResourceType string `dynamodbav:"resource-type"`
-	CreatedAt    int64  `dynamodbav:"createdAt"`
-	ExpireAt     int64  `dynamodbav:"expireAt"`
+	Id                string `dynamodbav:"id"`
+	Type              string `dynamodbav:"type"`
+	Owner             string `dynamodbav:"secondary-lookup"`
+	SecondaryLookupSk string `dynamodbav:"secondary-lookup-sk"`
+	CreatedAt         int64  `dynamodbav:"createdAt"`
+	ExpireAt          int64  `dynamodbav:"expireAt"`
 }
 
 type DynamoDBSessionRepository struct {
-	Client    *dynamodb.Client
-	Table     *string
-	NameIndex *string
+	Client               *dynamodb.Client
+	Table                *string
+	SecondaryLookupIndex *string
 }
 
 func NewSessionRepository(cfg aws.Config) *DynamoDBSessionRepository {
 	return &DynamoDBSessionRepository{
-		Client:    dynamodb.NewFromConfig(cfg),
-		Table:     aws.String(os.Getenv("SESSION_TABLE")),
-		NameIndex: aws.String(os.Getenv("SESSION_TABLE_NAME_INDEX")),
+		Client:               dynamodb.NewFromConfig(cfg),
+		Table:                aws.String(os.Getenv("OPERATIONAL_TABLE")),
+		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 }
 
 func (r *DynamoDBSessionRepository) Save(ctx context.Context, session *Session) error {
 	dbSession := &dbSessionAdapter{
-		Id:           string(session.Id),
-		Owner:        string(session.Owner),
-		ResourceType: "session-v1",
-		CreatedAt:    session.CreatedAt,
-		ExpireAt:     session.ExpireAt,
+		Id:                string(session.Id),
+		Type:              "session",
+		Owner:             string(session.Owner),
+		SecondaryLookupSk: "session",
+		CreatedAt:         session.CreatedAt,
+		ExpireAt:          session.ExpireAt,
 	}
 
 	item, err := attributevalue.MarshalMap(dbSession)
@@ -60,9 +62,10 @@ func (r *DynamoDBSessionRepository) Save(ctx context.Context, session *Session) 
 
 func (r *DynamoDBSessionRepository) FindById(ctx context.Context, id SessionId) (*Session, error) {
 	key, _ := attributevalue.Marshal(id)
+	dbType, _ := attributevalue.Marshal("session")
 
 	output, err := r.Client.GetItem(ctx, &dynamodb.GetItemInput{
-		Key:            map[string]types.AttributeValue{"id": key},
+		Key:            map[string]types.AttributeValue{"id": key, "type": dbType},
 		TableName:      r.Table,
 		ConsistentRead: aws.Bool(false),
 	})
@@ -91,7 +94,8 @@ func (r *DynamoDBSessionRepository) FindById(ctx context.Context, id SessionId) 
 }
 
 func (r *DynamoDBSessionRepository) FindByIdentity(ctx context.Context, ownerId identity.Id) (*Session, error) {
-	keyEx := expression.Key("secondary-lookup").Equal(expression.Value(ownerId))
+	keyEx := expression.Key("secondary-lookup").Equal(expression.Value(ownerId)).
+		And(expression.Key("secondary-lookup-sk").Equal(expression.Value("session")))
 	expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
 	if err != nil {
 		slog.ErrorContext(ctx, fmt.Sprintf("failed to build expression: %v", err))
@@ -100,7 +104,7 @@ func (r *DynamoDBSessionRepository) FindByIdentity(ctx context.Context, ownerId 
 
 	output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
 		TableName:                 r.Table,
-		IndexName:                 r.NameIndex,
+		IndexName:                 r.SecondaryLookupIndex,
 		KeyConditionExpression:    expr.KeyCondition(),
 		ExpressionAttributeNames:  expr.Names(),
 		ExpressionAttributeValues: expr.Values(),

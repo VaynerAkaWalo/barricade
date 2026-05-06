@@ -66,11 +66,45 @@ func setupModule(t *testing.T) *identityModule {
 					AttributeName: aws.String("id"),
 					KeyType:       types.KeyTypeHash,
 				},
+				{
+					AttributeName: aws.String("type"),
+					KeyType:       types.KeyTypeRange,
+				},
 			},
 			AttributeDefinitions: []types.AttributeDefinition{
 				{
 					AttributeName: aws.String("id"),
 					AttributeType: types.ScalarAttributeTypeS,
+				},
+				{
+					AttributeName: aws.String("type"),
+					AttributeType: types.ScalarAttributeTypeS,
+				},
+				{
+					AttributeName: aws.String("secondary-lookup"),
+					AttributeType: types.ScalarAttributeTypeS,
+				},
+				{
+					AttributeName: aws.String("secondary-lookup-sk"),
+					AttributeType: types.ScalarAttributeTypeS,
+				},
+			},
+			GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+				{
+					IndexName: aws.String("secondary-lookup-index"),
+					KeySchema: []types.KeySchemaElement{
+						{
+							AttributeName: aws.String("secondary-lookup"),
+							KeyType:       types.KeyTypeHash,
+						},
+						{
+							AttributeName: aws.String("secondary-lookup-sk"),
+							KeyType:       types.KeyTypeRange,
+						},
+					},
+					Projection: &types.Projection{
+						ProjectionType: types.ProjectionTypeAll,
+					},
 				},
 			},
 			BillingMode: types.BillingModePayPerRequest,
@@ -79,8 +113,9 @@ func setupModule(t *testing.T) *identityModule {
 	}, 30*time.Second, 1*time.Second, "Failed to create table after retries")
 
 	ddbRepository := DynamoDBIdentityRepository{
-		Client: client,
-		Table:  aws.String("test_identity_table"),
+		Client:               client,
+		Table:                aws.String("test_identity_table"),
+		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 
 	return &identityModule{
