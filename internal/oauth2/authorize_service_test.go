@@ -298,7 +298,11 @@ func TestAuthorizeServiceGenerateCodeHappyPath(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	code, err := module.authorizeService.GenerateCode(ctx, ident.Id, string(clientResult.Client.Id), "https://example.com/callback", "openid")
+	code, err := module.authorizeService.GenerateCode(ctx, ident.Id, AuthorizationParams{
+		ClientId:    string(clientResult.Client.Id),
+		RedirectURI: "https://example.com/callback",
+		Scope:       "openid",
+	})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, code)
 
@@ -308,6 +312,71 @@ func TestAuthorizeServiceGenerateCodeHappyPath(t *testing.T) {
 	assert.Equal(t, string(ident.Id), stored.IdentityId)
 	assert.Equal(t, "https://example.com/callback", stored.RedirectURI)
 	assert.Equal(t, "openid", stored.Scope)
+}
+
+func TestAuthorizeServiceGenerateCodeWithPKCE(t *testing.T) {
+	module := setupOAuth2Module(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	code, err := module.authorizeService.GenerateCode(ctx, ident.Id, AuthorizationParams{
+		ClientId:            string(clientResult.Client.Id),
+		RedirectURI:         "https://example.com/callback",
+		Scope:               "openid",
+		CodeChallenge:       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+		CodeChallengeMethod: "S256",
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, code)
+
+	stored, err := module.authCodeRepository.FindByCode(ctx, code)
+	assert.NoError(t, err)
+	assert.Equal(t, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", stored.CodeChallenge)
+	assert.Equal(t, "S256", stored.CodeChallengeMethod)
+}
+
+func TestAuthorizeServiceGenerateCodeWithPKCEDefaultsMethod(t *testing.T) {
+	module := setupOAuth2Module(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	code, err := module.authorizeService.GenerateCode(ctx, ident.Id, AuthorizationParams{
+		ClientId:      string(clientResult.Client.Id),
+		RedirectURI:   "https://example.com/callback",
+		Scope:         "openid",
+		CodeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, code)
+
+	stored, err := module.authCodeRepository.FindByCode(ctx, code)
+	assert.NoError(t, err)
+	assert.Equal(t, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", stored.CodeChallenge)
+	assert.Equal(t, "S256", stored.CodeChallengeMethod)
 }
 
 func TestAuthorizeServiceAuthorizeHappyPath(t *testing.T) {
