@@ -86,8 +86,6 @@ func TestTokenHandlerInvalidClient(t *testing.T) {
 }
 
 func TestTokenHandlerUnsupportedGrantType(t *testing.T) {
-	module := setupTokenModule(t)
-
 	form := url.Values{}
 	form.Set("grant_type", "client_credentials")
 
@@ -95,7 +93,7 @@ func TestTokenHandlerUnsupportedGrantType(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec := httptest.NewRecorder()
 
-	handler := TokenHttpHandler{Service: module.tokenService}
+	handler := TokenHttpHandler{Service: &TokenService{}}
 	err := handler.Token(rec, req)
 	assert.Error(t, err)
 
