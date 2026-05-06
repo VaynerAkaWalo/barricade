@@ -26,8 +26,9 @@ type appConfig struct {
 	AwsSecretKey       string `env:"DDB_ACCESS_SECRET_KEY"`
 	IssuerURL          string `env:"ISSUER_URL" envDefault:"https://auth.blamedevs.com"`
 	LoginURL           string `env:"LOGIN_URL" envDefault:"https://auth.blamedevs.com/login"`
-	TokenExpiryMinutes int    `env:"TOKEN_EXPIRY_MINUTES" envDefault:"5"`
-	CodeExpiryMinutes  int    `env:"CODE_EXPIRY_MINUTES" envDefault:"5"`
+	TokenExpiryMinutes     int    `env:"TOKEN_EXPIRY_MINUTES" envDefault:"5"`
+	AccessTokenExpiryMinutes int  `env:"ACCESS_TOKEN_EXPIRY_MINUTES" envDefault:"60"`
+	CodeExpiryMinutes      int    `env:"CODE_EXPIRY_MINUTES" envDefault:"5"`
 }
 
 func main() {
@@ -106,27 +107,34 @@ func main() {
 	}
 
 	tokenService := oauth2.TokenService{
-		IdentityStore: identityRepository,
-		ClientStore:   clientRepository,
-		CodeStore:     authCodeRepository,
-		KeyService:    keyService,
-		Issuer:        cfg.IssuerURL,
-		TokenExpiry:   cfg.TokenExpiryMinutes,
+		IdentityStore:      identityRepository,
+		ClientStore:        clientRepository,
+		CodeStore:          authCodeRepository,
+		KeyService:         keyService,
+		Issuer:             cfg.IssuerURL,
+		TokenExpiry:        cfg.TokenExpiryMinutes,
+		AccessTokenExpiry:  cfg.AccessTokenExpiryMinutes,
 	}
 
 	tokenHandler := oauth2.TokenHttpHandler{
 		Service: &tokenService,
 	}
 
+	userinfoHandler := oauth2.UserinfoHandler{
+		KeyService:    keyService,
+		IdentityStore: identityRepository,
+		Issuer:        cfg.IssuerURL,
+	}
+
 	authenticator := xhttp.NewAuthenticator(
 		ihttp.BarricadeAuthenticationProvider{
 			AuthenticationService: authNService,
 		},
-		[]string{"GET /health", "POST /v1/login", "POST /v1/register", "GET /.well-known/jwks.json", "GET /v1/oauth2/authorize", "POST /v1/oauth2/token"}...)
+		[]string{"GET /health", "POST /v1/login", "POST /v1/register", "GET /.well-known/jwks.json", "GET /v1/oauth2/authorize", "POST /v1/oauth2/token", "GET /v1/oauth2/userinfo"}...)
 
 	httpServer := xhttp.Server{
 		Addr:     ":8080",
-		Handlers: []xhttp.RouteHandler{&identityHandler, &clientHandler, &authNHandler, &infrastructure.HealthHttpHandler{}, &jwksHandler, &authorizeHandler, &tokenHandler},
+		Handlers: []xhttp.RouteHandler{&identityHandler, &clientHandler, &authNHandler, &infrastructure.HealthHttpHandler{}, &jwksHandler, &authorizeHandler, &tokenHandler, &userinfoHandler},
 		AuthN:    authenticator,
 	}
 

@@ -9,16 +9,18 @@ import (
 	"encoding/base64"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type TokenService struct {
-	IdentityStore IdentityRepository
-	ClientStore   ClientRepository
-	CodeStore     AuthorizationCodeRepository
-	KeyService    *keys.Service
-	Issuer        string
-	TokenExpiry   int
+	IdentityStore      IdentityRepository
+	ClientStore        ClientRepository
+	CodeStore          AuthorizationCodeRepository
+	KeyService         *keys.Service
+	Issuer             string
+	TokenExpiry        int
+	AccessTokenExpiry  int
 }
 
 type ExchangeTokenParams struct {
@@ -32,6 +34,7 @@ type ExchangeTokenParams struct {
 
 type TokenResult struct {
 	IDToken     string `json:"id_token"`
+	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
 	ExpiresIn   int    `json:"expires_in"`
 }
@@ -94,7 +97,12 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		return nil, ErrServerError
 	}
 
-	token, err := oidc.NewIdToken(oidc.IdTokenParams{
+	privateKey, err := key.RSAPrivateKey()
+	if err != nil {
+		return nil, ErrServerError
+	}
+
+	idToken, err := oidc.NewIdToken(oidc.IdTokenParams{
 		Key:           key,
 		Ident:         ident,
 		ClientId:      params.ClientId,
@@ -105,10 +113,32 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		return nil, ErrServerError
 	}
 
+	now := time.Now()
+	accessExp := now.Add(time.Duration(s.AccessTokenExpiry) * time.Minute)
+
+	accessClaims := jwt.MapClaims{
+		"iss":       s.Issuer,
+		"sub":       string(ident.Id),
+		"aud":       s.Issuer,
+		"exp":       accessExp.Unix(),
+		"iat":       now.Unix(),
+		"client_id": params.ClientId,
+		"scope":     authCode.Scope,
+	}
+
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodRS256, accessClaims)
+	accessToken.Header["kid"] = string(key.Id)
+
+	accessSigned, err := accessToken.SignedString(privateKey)
+	if err != nil {
+		return nil, ErrServerError
+	}
+
 	return &TokenResult{
-		IDToken:   string(token),
-		TokenType: "Bearer",
-		ExpiresIn: s.TokenExpiry * 60,
+		IDToken:     string(idToken),
+		AccessToken: accessSigned,
+		TokenType:   "Bearer",
+		ExpiresIn:   s.AccessTokenExpiry * 60,
 	}, nil
 }
 

@@ -233,12 +233,13 @@ func setupTokenModule(t *testing.T) *oauth2Module {
 	clientService := ClientService{Repo: clientRepository}
 
 	tokenService := &TokenService{
-		IdentityStore: identityStore,
-		ClientStore:   clientRepository,
-		CodeStore:     authCodeRepository,
-		KeyService:    keyService,
-		Issuer:        "https://test.issuer.com",
-		TokenExpiry:   5,
+		IdentityStore:      identityStore,
+		ClientStore:        clientRepository,
+		CodeStore:          authCodeRepository,
+		KeyService:         keyService,
+		Issuer:             "https://test.issuer.com",
+		TokenExpiry:        5,
+		AccessTokenExpiry:  60,
 	}
 
 	return &oauth2Module{
@@ -281,8 +282,9 @@ func TestTokenExchangeHappyPath(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.IDToken)
+	assert.NotEmpty(t, result.AccessToken)
 	assert.Equal(t, "Bearer", result.TokenType)
-	assert.Equal(t, 300, result.ExpiresIn)
+	assert.Equal(t, 3600, result.ExpiresIn)
 }
 
 func TestTokenExchangeUnsupportedGrantType(t *testing.T) {
@@ -437,8 +439,9 @@ func TestTokenExchangeWithPKCEHappyPath(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.IDToken)
+	assert.NotEmpty(t, result.AccessToken)
 	assert.Equal(t, "Bearer", result.TokenType)
-	assert.Equal(t, 300, result.ExpiresIn)
+	assert.Equal(t, 3600, result.ExpiresIn)
 }
 
 func TestTokenExchangeWithPKCEMissingVerifier(t *testing.T) {
@@ -537,6 +540,7 @@ func TestTokenExchangeWithPKCEPublicClientNoSecret(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.IDToken)
+	assert.NotEmpty(t, result.AccessToken)
 }
 
 func TestTokenExchangeCodeReplay(t *testing.T) {

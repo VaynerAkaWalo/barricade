@@ -48,6 +48,7 @@ func TestTokenHandlerExchangeHappyPath(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), "id_token")
+	assert.Contains(t, rec.Body.String(), "access_token")
 	assert.Contains(t, rec.Body.String(), "Bearer")
 }
 
@@ -143,6 +144,7 @@ func TestTokenHandlerExchangeWithBasicAuth(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), "id_token")
+	assert.Contains(t, rec.Body.String(), "access_token")
 	assert.Contains(t, rec.Body.String(), "Bearer")
 }
 
@@ -186,6 +188,7 @@ func TestTokenHandlerExchangeWithPKCEHappyPath(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), "id_token")
+	assert.Contains(t, rec.Body.String(), "access_token")
 	assert.Contains(t, rec.Body.String(), "Bearer")
 }
 
@@ -264,4 +267,5 @@ func TestTokenHandlerBasicAuthOverridesBody(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), "id_token")
+	assert.Contains(t, rec.Body.String(), "access_token")
 }
