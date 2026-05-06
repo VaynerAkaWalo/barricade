@@ -16,26 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	TEST_NAME   = "first name"
-	TEST_SECRET = "changeIt"
-)
-
-type oauth2Module struct {
-	authorizeService      *AuthorizeService
-	authorizeHandler      *HttpHandler
-	sessionService        authentication.SessionService
-	identityService       identity.Service
-	clientService         ClientService
-	keyService            *keys.Service
-	identityRepository    identity.Repository
-	sessionRepository     authentication.SessionRepository
-	clientRepository      ClientRepository
-	authCodeRepository    AuthorizationCodeRepository
-	tokenService          *TokenService
-}
-
-func setupOAuth2Module(t *testing.T) *oauth2Module {
+func setupTokenModule(t *testing.T) *oauth2Module {
 	sessionTable := dynamodb.CreateTableInput{
 		TableName: aws.String("test_session_table"),
 		KeySchema: []types.KeySchemaElement{
@@ -205,18 +186,6 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 		NameIndex: aws.String("secondary-lookup-index"),
 	}
 
-	sessionService := authentication.SessionService{
-		SessionStore:  sessionStore,
-		IdentityStore: identityStore,
-	}
-
-	identityService := identity.Service{
-		Repo: &identity.DynamoDBIdentityRepository{
-			Client: client,
-			Table:  aws.String("test_identity_table"),
-		},
-	}
-
 	clientRepository := &DynamoDBClientRepository{
 		Client: client,
 		Table:  aws.String("test_entities_table"),
@@ -228,34 +197,17 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 		NameIndex: aws.String("secondary-lookup-index"),
 	}
 
-	clientService := ClientService{Repo: clientRepository}
-
 	keyRepo := keys.NewInMemoryRepository()
 	keyService := keys.NewService(keyRepo)
 
 	_, err := keyService.CreateKey(context.Background(), keys.RS256)
 	assert.NoError(t, err)
 
-	authorizeService := &AuthorizeService{
-		IdentityStore: identityStore,
-		ClientStore:   clientRepository,
-		CodeStore:     authCodeRepository,
-		KeyService:    keyService,
-		Issuer:        "https://test.issuer.com",
-		TokenExpiry:   5,
-		CodeExpiry:    5,
+	identityService := identity.Service{
+		Repo: identityStore,
 	}
 
-	authService := &authentication.Service{
-		IdentityStore: identityStore,
-		SessionStore:  sessionStore,
-	}
-
-	authorizeHandler := &HttpHandler{
-		Service:     authorizeService,
-		AuthService: authService,
-		LoginURL:    "https://auth.test.com/login",
-	}
+	clientService := ClientService{Repo: clientRepository}
 
 	tokenService := &TokenService{
 		IdentityStore: identityStore,
@@ -267,9 +219,6 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 	}
 
 	return &oauth2Module{
-		authorizeService:   authorizeService,
-		authorizeHandler:   authorizeHandler,
-		sessionService:     sessionService,
 		identityService:    identityService,
 		clientService:      clientService,
 		keyService:         keyService,
@@ -281,72 +230,8 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 	}
 }
 
-func TestAuthorizeServiceValidateMissingResponseType(t *testing.T) {
-	module := setupOAuth2Module(t)
-
-	params := AuthorizationParams{
-		ClientId: "test-client",
-		Scope:    "openid",
-	}
-
-	err := module.authorizeService.Validate(params)
-	assert.ErrorIs(t, err, ErrInvalidRequest)
-}
-
-func TestAuthorizeServiceValidateUnsupportedResponseType(t *testing.T) {
-	module := setupOAuth2Module(t)
-
-	params := AuthorizationParams{
-		ResponseType: "token",
-		ClientId:     "test-client",
-		Scope:        "openid",
-	}
-
-	err := module.authorizeService.Validate(params)
-	assert.ErrorIs(t, err, ErrUnsupportedResponseType)
-}
-
-func TestAuthorizeServiceValidateMissingOpenIDScope(t *testing.T) {
-	module := setupOAuth2Module(t)
-
-	params := AuthorizationParams{
-		ResponseType: "id_token",
-		ClientId:     "test-client",
-		Scope:        "profile email",
-	}
-
-	err := module.authorizeService.Validate(params)
-	assert.ErrorIs(t, err, ErrInvalidScope)
-}
-
-func TestAuthorizeServiceValidateHappyPath(t *testing.T) {
-	module := setupOAuth2Module(t)
-
-	params := AuthorizationParams{
-		ResponseType: "id_token",
-		ClientId:     "test-client",
-		Scope:        "openid profile",
-	}
-
-	err := module.authorizeService.Validate(params)
-	assert.NoError(t, err)
-}
-
-func TestAuthorizeServiceValidateCodeResponseType(t *testing.T) {
-	module := setupOAuth2Module(t)
-
-	params := AuthorizationParams{
-		ResponseType: "code",
-		ClientId:     "test-client",
-		Scope:        "openid",
-	}
-
-	err := module.authorizeService.Validate(params)
-	assert.NoError(t, err)
-}
-
-func TestAuthorizeServiceGenerateCodeHappyPath(t *testing.T) {
-	module := setupOAuth2Module(t)
+func TestTokenExchangeHappyPath(t *testing.T) {
+	module := setupTokenModule(t)
 
 	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
@@ -359,125 +244,170 @@ func TestAuthorizeServiceGenerateCodeHappyPath(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	code, err := module.authorizeService.GenerateCode(ctx, ident.Id, string(clientResult.Client.Id), "https://example.com/callback", "openid")
-	assert.NoError(t, err)
-	assert.NotEmpty(t, code)
-
-	stored, err := module.authCodeRepository.FindByCode(ctx, code)
-	assert.NoError(t, err)
-	assert.Equal(t, string(clientResult.Client.Id), stored.ClientId)
-	assert.Equal(t, string(ident.Id), stored.IdentityId)
-	assert.Equal(t, "https://example.com/callback", stored.RedirectURI)
-	assert.Equal(t, "openid", stored.Scope)
-}
-
-func TestAuthorizeServiceAuthorizeHappyPath(t *testing.T) {
-	module := setupOAuth2Module(t)
-
-	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "test-auth-code-123"
+	err = module.authCodeRepository.Save(context.Background(), code)
 	assert.NoError(t, err)
 
-	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
-		OwnerId:     string(ident.Id),
-		Name:        "test-app",
-		Domain:      "example.com",
-		RedirectURI: "https://example.com/callback",
+	result, err := module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "test-auth-code-123",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: string(clientResult.ClientSecret),
 	})
-	assert.NoError(t, err)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result, err := module.authorizeService.Authorize(ctx, ident.Id, string(clientResult.Client.Id))
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.IDToken)
-	assert.NotNil(t, result)
+	assert.Equal(t, "Bearer", result.TokenType)
+	assert.Equal(t, 300, result.ExpiresIn)
 }
 
-func TestValidateClientRedirectUnregisteredClient(t *testing.T) {
-	module := setupOAuth2Module(t)
+func TestTokenExchangeUnsupportedGrantType(t *testing.T) {
+	module := setupTokenModule(t)
 
-	params := AuthorizationParams{
-		ClientId:    "nonexistent-client-id",
-		RedirectURI: "https://example.com/callback",
-	}
-
-	_, _, err := module.authorizeService.ValidateClientRedirect(context.Background(), params)
-	assert.ErrorIs(t, err, ErrUnauthorizedClient)
+	_, err := module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType: "client_credentials",
+	})
+	assert.ErrorIs(t, err, ErrUnsupportedGrantType)
 }
 
-func TestValidateClientRedirectRedirectURIDomainMismatch(t *testing.T) {
-	module := setupOAuth2Module(t)
+func TestTokenExchangeInvalidClient(t *testing.T) {
+	module := setupTokenModule(t)
 
-	_, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
 	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
-		OwnerId:     TEST_CLIENT_OWNER_ID,
+		OwnerId:     string(ident.Id),
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
 	})
 	assert.NoError(t, err)
 
-	params := AuthorizationParams{
-		ClientId:    string(clientResult.Client.Id),
-		RedirectURI: "https://evil.com/callback",
-	}
-
-	_, _, err = module.authorizeService.ValidateClientRedirect(context.Background(), params)
-	assert.ErrorIs(t, err, ErrRedirectURIMismatch)
+	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: "wrong-secret",
+	})
+	assert.ErrorIs(t, err, ErrInvalidClient)
 }
 
-func TestValidateClientRedirectUsesRegisteredURIAsFallback(t *testing.T) {
-	module := setupOAuth2Module(t)
+func TestTokenExchangeInvalidCode(t *testing.T) {
+	module := setupTokenModule(t)
 
-	_, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
 	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
-		OwnerId:     TEST_CLIENT_OWNER_ID,
+		OwnerId:     string(ident.Id),
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
 	})
 	assert.NoError(t, err)
 
-	params := AuthorizationParams{
-		ClientId:    string(clientResult.Client.Id),
-		RedirectURI: "",
-	}
-
-	client, redirectURI, err := module.authorizeService.ValidateClientRedirect(context.Background(), params)
-	assert.NoError(t, err)
-	assert.Equal(t, clientResult.Client.Id, client.Id)
-	assert.Equal(t, "https://example.com/callback", redirectURI)
+	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "nonexistent-code",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: string(clientResult.ClientSecret),
+	})
+	assert.ErrorIs(t, err, ErrInvalidCode)
 }
 
-func TestValidateClientRedirectSubdomainAllowed(t *testing.T) {
-	module := setupOAuth2Module(t)
+func TestTokenExchangeExpiredCode(t *testing.T) {
+	module := setupTokenModule(t)
 
-	_, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
 	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
-		OwnerId:     TEST_CLIENT_OWNER_ID,
+		OwnerId:     string(ident.Id),
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
 	})
 	assert.NoError(t, err)
 
-	params := AuthorizationParams{
-		ClientId:    string(clientResult.Client.Id),
-		RedirectURI: "https://sub.example.com/callback",
-	}
-
-	client, redirectURI, err := module.authorizeService.ValidateClientRedirect(context.Background(), params)
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "expired-code-123"
+	code.ExpireAt = time.Now().Add(-1 * time.Minute).Unix()
+	err = module.authCodeRepository.Save(context.Background(), code)
 	assert.NoError(t, err)
-	assert.Equal(t, clientResult.Client.Id, client.Id)
-	assert.Equal(t, "https://sub.example.com/callback", redirectURI)
+
+	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "expired-code-123",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: string(clientResult.ClientSecret),
+	})
+	assert.ErrorIs(t, err, ErrCodeExpired)
+}
+
+func TestTokenExchangeRedirectURIMismatch(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "mismatch-code-123"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "mismatch-code-123",
+		RedirectURI:  "https://evil.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: string(clientResult.ClientSecret),
+	})
+	assert.ErrorIs(t, err, ErrCodeMismatch)
+}
+
+func TestTokenExchangeCodeReplay(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "replay-code-123"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "replay-code-123",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: string(clientResult.ClientSecret),
+	})
+	assert.NoError(t, err)
+
+	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "replay-code-123",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: string(clientResult.ClientSecret),
+	})
+	assert.ErrorIs(t, err, ErrInvalidCode)
 }
