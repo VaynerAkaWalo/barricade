@@ -88,66 +88,28 @@ func setupClientModule(t *testing.T) *clientModule {
 }
 
 func TestClientRegisterEmptyOwnerId(t *testing.T) {
-	module := setupClientModule(t)
-
-	_, err := module.service.Register(context.Background(), RegisterClientParams{
-		OwnerId:     "",
-		Name:        TEST_CLIENT_NAME,
-		Domain:      TEST_CLIENT_DOMAIN,
-		RedirectURI: TEST_CLIENT_REDIRECT_URI,
-	})
+	_, _, err := NewClient("", TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, TEST_CLIENT_REDIRECT_URI)
 	assert.ErrorIs(t, err, ErrClientEmptyOwnerId)
 }
 
 func TestClientRegisterInputValidation(t *testing.T) {
-	module := setupClientModule(t)
-
-	_, err := module.service.Register(context.Background(), RegisterClientParams{
-		OwnerId:     TEST_CLIENT_OWNER_ID,
-		Name:        "",
-		Domain:      TEST_CLIENT_DOMAIN,
-		RedirectURI: TEST_CLIENT_REDIRECT_URI,
-	})
+	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, "", TEST_CLIENT_DOMAIN, TEST_CLIENT_REDIRECT_URI)
 	assert.ErrorIs(t, err, ErrClientEmptyName)
 
-	_, err = module.service.Register(context.Background(), RegisterClientParams{
-		OwnerId:     TEST_CLIENT_OWNER_ID,
-		Name:        TEST_CLIENT_NAME,
-		Domain:      "",
-		RedirectURI: TEST_CLIENT_REDIRECT_URI,
-	})
+	_, _, err = NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, "", TEST_CLIENT_REDIRECT_URI)
 	assert.ErrorIs(t, err, ErrClientEmptyDomain)
 
-	_, err = module.service.Register(context.Background(), RegisterClientParams{
-		OwnerId:     TEST_CLIENT_OWNER_ID,
-		Name:        TEST_CLIENT_NAME,
-		Domain:      TEST_CLIENT_DOMAIN,
-		RedirectURI: "",
-	})
+	_, _, err = NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, "")
 	assert.ErrorIs(t, err, ErrClientEmptyRedirectURI)
 }
 
 func TestClientRegisterInvalidRedirectURI(t *testing.T) {
-	module := setupClientModule(t)
-
-	_, err := module.service.Register(context.Background(), RegisterClientParams{
-		OwnerId:     TEST_CLIENT_OWNER_ID,
-		Name:        TEST_CLIENT_NAME,
-		Domain:      TEST_CLIENT_DOMAIN,
-		RedirectURI: "not-a-url",
-	})
+	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, "not-a-url")
 	assert.ErrorIs(t, err, ErrClientInvalidRedirectURI)
 }
 
 func TestClientRegisterRedirectURIDomainMismatch(t *testing.T) {
-	module := setupClientModule(t)
-
-	_, err := module.service.Register(context.Background(), RegisterClientParams{
-		OwnerId:     TEST_CLIENT_OWNER_ID,
-		Name:        TEST_CLIENT_NAME,
-		Domain:      TEST_CLIENT_DOMAIN,
-		RedirectURI: "https://other.com/callback",
-	})
+	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, "https://other.com/callback")
 	assert.ErrorIs(t, err, ErrClientRedirectURIDomainMismatch)
 }
 

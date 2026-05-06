@@ -263,9 +263,9 @@ func TestTokenExchangeHappyPath(t *testing.T) {
 }
 
 func TestTokenExchangeUnsupportedGrantType(t *testing.T) {
-	module := setupTokenModule(t)
+	svc := &TokenService{}
 
-	_, err := module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+	_, err := svc.Exchange(context.Background(), ExchangeTokenParams{
 		GrantType: "client_credentials",
 	})
 	assert.ErrorIs(t, err, ErrUnsupportedGrantType)
