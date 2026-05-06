@@ -29,11 +29,13 @@ type IdentityRepository interface {
 
 type (
 	AuthorizationParams struct {
-		ResponseType string
-		ClientId     string
-		Scope        string
-		RedirectURI  string
-		State        string
+		ResponseType        string
+		ClientId            string
+		Scope               string
+		RedirectURI         string
+		State               string
+		CodeChallenge       string
+		CodeChallengeMethod string
 	}
 
 	AuthorizationResult struct {
@@ -94,7 +96,25 @@ func (s *AuthorizeService) Validate(params AuthorizationParams) error {
 		return ErrInvalidScope
 	}
 
+	if params.CodeChallenge != "" {
+		method := params.CodeChallengeMethod
+		if method == "" {
+			method = "S256"
+		}
+		if method != "S256" {
+			return ErrInvalidCodeChallengeMethod
+		}
+		if !isValidCodeChallenge(params.CodeChallenge) {
+			return ErrInvalidCodeChallenge
+		}
+	}
+
 	return nil
+}
+
+func isValidCodeChallenge(challenge string) bool {
+	l := len(challenge)
+	return l >= 43 && l <= 128
 }
 
 func (s *AuthorizeService) Authorize(ctx context.Context, identityId identity.Id, clientId string) (*AuthorizationResult, error) {
@@ -124,14 +144,21 @@ func (s *AuthorizeService) Authorize(ctx context.Context, identityId identity.Id
 	}, nil
 }
 
-func (s *AuthorizeService) GenerateCode(ctx context.Context, identityId identity.Id, clientId string, redirectURI string, scope string) (string, error) {
+func (s *AuthorizeService) GenerateCode(ctx context.Context, identityId identity.Id, params AuthorizationParams) (string, error) {
 	code, err := generateAuthCode()
 	if err != nil {
 		return "", ErrServerError
 	}
 
-	authCode := NewAuthorizationCode(clientId, string(identityId), redirectURI, scope, s.CodeExpiry)
+	method := params.CodeChallengeMethod
+	if params.CodeChallenge != "" && method == "" {
+		method = "S256"
+	}
+
+	authCode := NewAuthorizationCode(params.ClientId, string(identityId), params.RedirectURI, params.Scope, s.CodeExpiry)
 	authCode.Code = code
+	authCode.CodeChallenge = params.CodeChallenge
+	authCode.CodeChallengeMethod = method
 
 	err = s.CodeStore.Save(ctx, authCode)
 	if err != nil {

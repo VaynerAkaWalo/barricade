@@ -308,8 +308,15 @@ func TestTokenExchangeInvalidClient(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "invalid-client-code"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
 	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
 		GrantType:    "authorization_code",
+		Code:         "invalid-client-code",
+		RedirectURI:  "https://example.com/callback",
 		ClientId:     string(clientResult.Client.Id),
 		ClientSecret: "wrong-secret",
 	})
@@ -395,6 +402,141 @@ func TestTokenExchangeRedirectURIMismatch(t *testing.T) {
 		ClientSecret: string(clientResult.ClientSecret),
 	})
 	assert.ErrorIs(t, err, ErrCodeMismatch)
+}
+
+func TestTokenExchangeWithPKCEHappyPath(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	codeVerifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	codeChallenge := "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "pkce-code-123"
+	code.CodeChallenge = codeChallenge
+	code.CodeChallengeMethod = "S256"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	result, err := module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "pkce-code-123",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		CodeVerifier: codeVerifier,
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, result.IDToken)
+	assert.Equal(t, "Bearer", result.TokenType)
+	assert.Equal(t, 300, result.ExpiresIn)
+}
+
+func TestTokenExchangeWithPKCEMissingVerifier(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "pkce-missing-verifier"
+	code.CodeChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+	code.CodeChallengeMethod = "S256"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "pkce-missing-verifier",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		CodeVerifier: "",
+	})
+	assert.ErrorIs(t, err, ErrMissingCodeVerifier)
+}
+
+func TestTokenExchangeWithPKCEInvalidVerifier(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "pkce-invalid-verifier"
+	code.CodeChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+	code.CodeChallengeMethod = "S256"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "pkce-invalid-verifier",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		CodeVerifier: "wrong-verifier-that-does-not-match",
+	})
+	assert.ErrorIs(t, err, ErrInvalidCodeVerifier)
+}
+
+func TestTokenExchangeWithPKCEPublicClientNoSecret(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	codeVerifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	codeChallenge := "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "pkce-public-client"
+	code.CodeChallenge = codeChallenge
+	code.CodeChallengeMethod = "S256"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	result, err := module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "pkce-public-client",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: "",
+		CodeVerifier: codeVerifier,
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, result.IDToken)
 }
 
 func TestTokenExchangeCodeReplay(t *testing.T) {
