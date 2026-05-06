@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -97,11 +96,6 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		return nil, ErrServerError
 	}
 
-	privateKey, err := key.RSAPrivateKey()
-	if err != nil {
-		return nil, ErrServerError
-	}
-
 	idToken, err := oidc.NewIdToken(oidc.IdTokenParams{
 		Key:           key,
 		Ident:         ident,
@@ -113,30 +107,21 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		return nil, ErrServerError
 	}
 
-	now := time.Now()
-	accessExp := now.Add(time.Duration(s.AccessTokenExpiry) * time.Minute)
-
-	accessClaims := jwt.MapClaims{
-		"iss":       s.Issuer,
-		"sub":       string(ident.Id),
-		"aud":       s.Issuer,
-		"exp":       accessExp.Unix(),
-		"iat":       now.Unix(),
-		"client_id": params.ClientId,
-		"scope":     authCode.Scope,
-	}
-
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodRS256, accessClaims)
-	accessToken.Header["kid"] = string(key.Id)
-
-	accessSigned, err := accessToken.SignedString(privateKey)
+	accessToken, err := oidc.NewAccessToken(oidc.AccessTokenParams{
+		Key:           key,
+		Ident:         ident,
+		ClientId:      params.ClientId,
+		Issuer:        s.Issuer,
+		Scope:         authCode.Scope,
+		ExpiryMinutes: s.AccessTokenExpiry,
+	})
 	if err != nil {
 		return nil, ErrServerError
 	}
 
 	return &TokenResult{
 		IDToken:     string(idToken),
-		AccessToken: accessSigned,
+		AccessToken: string(accessToken),
 		TokenType:   "Bearer",
 		ExpiresIn:   s.AccessTokenExpiry * 60,
 	}, nil
