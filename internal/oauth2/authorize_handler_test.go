@@ -11,7 +11,7 @@ func TestBuildSuccessRedirectURL(t *testing.T) {
 		IDToken: "test-id-token",
 	}
 
-	redirectURL := buildSuccessRedirectURL("https://example.com/callback", result, 5)
+	redirectURL := buildSuccessRedirectURL("https://example.com/callback", result, 5, "")
 
 	assert.Contains(t, redirectURL, "https://example.com/callback")
 	assert.Contains(t, redirectURL, "id_token=test-id-token")
@@ -21,7 +21,7 @@ func TestBuildSuccessRedirectURL(t *testing.T) {
 }
 
 func TestBuildErrorRedirectURL(t *testing.T) {
-	redirectURL := buildErrorRedirectURL("https://example.com/callback", "invalid_request", "missing parameter")
+	redirectURL := buildErrorRedirectURL("https://example.com/callback", "invalid_request", "missing parameter", string(ResponseTypeIdToken))
 
 	assert.Contains(t, redirectURL, "https://example.com/callback")
 	assert.Contains(t, redirectURL, "error=invalid_request")
@@ -30,7 +30,7 @@ func TestBuildErrorRedirectURL(t *testing.T) {
 }
 
 func TestBuildErrorRedirectURLEmptyDescription(t *testing.T) {
-	redirectURL := buildErrorRedirectURL("https://example.com/callback", "invalid_scope", "")
+	redirectURL := buildErrorRedirectURL("https://example.com/callback", "invalid_scope", "", string(ResponseTypeIdToken))
 
 	assert.Contains(t, redirectURL, "error=invalid_scope")
 	assert.NotContains(t, redirectURL, "error_description")
@@ -41,13 +41,13 @@ func TestBuildSuccessRedirectURLInvalidURI(t *testing.T) {
 		IDToken: "test-id-token",
 	}
 
-	redirectURL := buildSuccessRedirectURL("://invalid-url", result, 5)
+	redirectURL := buildSuccessRedirectURL("://invalid-url", result, 5, "")
 
 	assert.Equal(t, "://invalid-url", redirectURL)
 }
 
 func TestBuildErrorRedirectURLInvalidURI(t *testing.T) {
-	redirectURL := buildErrorRedirectURL("://invalid-url", "invalid_request", "missing parameter")
+	redirectURL := buildErrorRedirectURL("://invalid-url", "invalid_request", "missing parameter", string(ResponseTypeIdToken))
 
 	assert.Equal(t, "://invalid-url", redirectURL)
 }

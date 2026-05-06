@@ -5,6 +5,8 @@ import (
 	"barricade/internal/keys"
 	"barricade/internal/oidc"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"net/url"
 	"strings"
@@ -17,6 +19,7 @@ type (
 
 const (
 	ResponseTypeIdToken responseType = "id_token"
+	ResponseTypeCode    responseType = "code"
 	ScopeOpenID         scope        = "openid"
 )
 
@@ -30,6 +33,7 @@ type (
 		ClientId     string
 		Scope        string
 		RedirectURI  string
+		State        string
 	}
 
 	AuthorizationResult struct {
@@ -39,9 +43,11 @@ type (
 	AuthorizeService struct {
 		IdentityStore IdentityRepository
 		ClientStore   ClientRepository
+		CodeStore     AuthorizationCodeRepository
 		KeyService    *keys.Service
 		Issuer        string
 		TokenExpiry   int
+		CodeExpiry    int
 	}
 )
 
@@ -76,7 +82,7 @@ func (s *AuthorizeService) Validate(params AuthorizationParams) error {
 		return ErrInvalidRequest
 	}
 
-	if !strings.Contains(params.ResponseType, string(ResponseTypeIdToken)) {
+	if !strings.Contains(params.ResponseType, string(ResponseTypeIdToken)) && params.ResponseType != string(ResponseTypeCode) {
 		return ErrUnsupportedResponseType
 	}
 
@@ -116,4 +122,29 @@ func (s *AuthorizeService) Authorize(ctx context.Context, identityId identity.Id
 	return &AuthorizationResult{
 		IDToken: token,
 	}, nil
+}
+
+func (s *AuthorizeService) GenerateCode(ctx context.Context, identityId identity.Id, clientId string, redirectURI string, scope string) (string, error) {
+	code, err := generateAuthCode()
+	if err != nil {
+		return "", ErrServerError
+	}
+
+	authCode := NewAuthorizationCode(clientId, string(identityId), redirectURI, scope, s.CodeExpiry)
+	authCode.Code = code
+
+	err = s.CodeStore.Save(ctx, authCode)
+	if err != nil {
+		return "", ErrServerError
+	}
+
+	return code, nil
+}
+
+func generateAuthCode() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
