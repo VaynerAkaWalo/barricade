@@ -79,7 +79,7 @@ type DynamoDBClientRepository struct {
 func NewClientRepository(cfg aws.Config) *DynamoDBClientRepository {
 	return &DynamoDBClientRepository{
 		Client:           dynamodb.NewFromConfig(cfg),
-		Table:            aws.String(os.Getenv("CLIENT_TABLE_NAME")),
+		Table:            aws.String(os.Getenv("ENTITIES_TABLE")),
 		ShardedTypeIndex: aws.String("sharded-type-index"),
 	}
 }

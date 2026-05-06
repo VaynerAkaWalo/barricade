@@ -39,8 +39,8 @@ type DynamoDBAuthorizationCodeRepository struct {
 func NewAuthorizationCodeRepository(cfg aws.Config) *DynamoDBAuthorizationCodeRepository {
 	return &DynamoDBAuthorizationCodeRepository{
 		Client:               dynamodb.NewFromConfig(cfg),
-		Table:                aws.String(os.Getenv("SESSION_TABLE")),
-		SecondaryLookupIndex: aws.String(os.Getenv("SESSION_TABLE_NAME_INDEX")),
+		Table:                aws.String(os.Getenv("OPERATIONAL_TABLE")),
+		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 }
 

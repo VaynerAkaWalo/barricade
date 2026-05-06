@@ -32,8 +32,8 @@ type DynamoDBSessionRepository struct {
 func NewSessionRepository(cfg aws.Config) *DynamoDBSessionRepository {
 	return &DynamoDBSessionRepository{
 		Client:               dynamodb.NewFromConfig(cfg),
-		Table:                aws.String(os.Getenv("SESSION_TABLE")),
-		SecondaryLookupIndex: aws.String(os.Getenv("SESSION_TABLE_NAME_INDEX")),
+		Table:                aws.String(os.Getenv("OPERATIONAL_TABLE")),
+		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 }
 

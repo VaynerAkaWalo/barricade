@@ -52,7 +52,7 @@ type DynamoDBIdentityRepository struct {
 func NewIdentityRepository(cfg aws.Config) *DynamoDBIdentityRepository {
 	return &DynamoDBIdentityRepository{
 		Client:               dynamodb.NewFromConfig(cfg),
-		Table:                aws.String(os.Getenv("IDENTITY_TABLE_NAME")),
+		Table:                aws.String(os.Getenv("ENTITIES_TABLE")),
 		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
 	}
 }
