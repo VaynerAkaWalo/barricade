@@ -64,3 +64,91 @@ func TestAuthorizeServiceValidateCodeResponseType(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestAuthorizeServiceValidatePKCEHappyPath(t *testing.T) {
+	svc := &AuthorizeService{}
+
+	err := svc.Validate(AuthorizationParams{
+		ResponseType:        "code",
+		ClientId:            "test-client",
+		Scope:               "openid",
+		CodeChallenge:       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+		CodeChallengeMethod: "S256",
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestAuthorizeServiceValidatePKCEDefaultsToS256(t *testing.T) {
+	svc := &AuthorizeService{}
+
+	err := svc.Validate(AuthorizationParams{
+		ResponseType:  "code",
+		ClientId:      "test-client",
+		Scope:         "openid",
+		CodeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestAuthorizeServiceValidatePKCEInvalidMethod(t *testing.T) {
+	svc := &AuthorizeService{}
+
+	err := svc.Validate(AuthorizationParams{
+		ResponseType:        "code",
+		ClientId:            "test-client",
+		Scope:               "openid",
+		CodeChallenge:       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+		CodeChallengeMethod: "plain",
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidCodeChallengeMethod)
+}
+
+func TestAuthorizeServiceValidatePKCEChallengeTooShort(t *testing.T) {
+	svc := &AuthorizeService{}
+
+	err := svc.Validate(AuthorizationParams{
+		ResponseType:        "code",
+		ClientId:            "test-client",
+		Scope:               "openid",
+		CodeChallenge:       "short",
+		CodeChallengeMethod: "S256",
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidCodeChallenge)
+}
+
+func TestAuthorizeServiceValidatePKCEChallengeTooLong(t *testing.T) {
+	svc := &AuthorizeService{}
+
+	challenge := make([]byte, 129)
+	for i := range challenge {
+		challenge[i] = 'a'
+	}
+
+	err := svc.Validate(AuthorizationParams{
+		ResponseType:        "code",
+		ClientId:            "test-client",
+		Scope:               "openid",
+		CodeChallenge:       string(challenge),
+		CodeChallengeMethod: "S256",
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidCodeChallenge)
+}
+
+func TestAuthorizeServiceValidatePKCEIgnoresForIdToken(t *testing.T) {
+	svc := &AuthorizeService{}
+
+	err := svc.Validate(AuthorizationParams{
+		ResponseType:        "id_token",
+		ClientId:            "test-client",
+		Scope:               "openid",
+		CodeChallenge:       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+		CodeChallengeMethod: "S256",
+	})
+
+	assert.NoError(t, err)
+}

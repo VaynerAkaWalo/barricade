@@ -5,6 +5,8 @@ import (
 	"barricade/internal/keys"
 	"barricade/internal/oidc"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -25,6 +27,7 @@ type ExchangeTokenParams struct {
 	RedirectURI  string
 	ClientId     string
 	ClientSecret string
+	CodeVerifier string
 }
 
 type TokenResult struct {
@@ -46,10 +49,6 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		return nil, err
 	}
 
-	if err := bcrypt.CompareHashAndPassword(client.SecretHash, []byte(params.ClientSecret)); err != nil {
-		return nil, ErrInvalidClient
-	}
-
 	authCode, err := s.CodeStore.FindByCode(ctx, params.Code)
 	if err != nil {
 		return nil, err
@@ -66,6 +65,19 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 
 	if authCode.RedirectURI != params.RedirectURI {
 		return nil, ErrCodeMismatch
+	}
+
+	if authCode.CodeChallenge != "" {
+		if params.CodeVerifier == "" {
+			return nil, ErrMissingCodeVerifier
+		}
+		if !verifyPKCE(params.CodeVerifier, authCode.CodeChallenge) {
+			return nil, ErrInvalidCodeVerifier
+		}
+	} else {
+		if err := bcrypt.CompareHashAndPassword(client.SecretHash, []byte(params.ClientSecret)); err != nil {
+			return nil, ErrInvalidClient
+		}
 	}
 
 	if err := s.CodeStore.Delete(ctx, params.Code); err != nil {
@@ -98,4 +110,10 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		TokenType: "Bearer",
 		ExpiresIn: s.TokenExpiry * 60,
 	}, nil
+}
+
+func verifyPKCE(verifier string, challenge string) bool {
+	hash := sha256.Sum256([]byte(verifier))
+	encoded := base64.RawURLEncoding.EncodeToString(hash[:])
+	return encoded == challenge
 }

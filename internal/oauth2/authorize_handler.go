@@ -27,11 +27,13 @@ func (h *HttpHandler) Authorize(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
 	params := AuthorizationParams{
-		ResponseType: r.URL.Query().Get("response_type"),
-		ClientId:     r.URL.Query().Get("client_id"),
-		Scope:        r.URL.Query().Get("scope"),
-		RedirectURI:  r.URL.Query().Get("redirect_uri"),
-		State:        r.URL.Query().Get("state"),
+		ResponseType:        r.URL.Query().Get("response_type"),
+		ClientId:            r.URL.Query().Get("client_id"),
+		Scope:               r.URL.Query().Get("scope"),
+		RedirectURI:         r.URL.Query().Get("redirect_uri"),
+		State:               r.URL.Query().Get("state"),
+		CodeChallenge:       r.URL.Query().Get("code_challenge"),
+		CodeChallengeMethod: r.URL.Query().Get("code_challenge_method"),
 	}
 
 	if params.ClientId == "" {
@@ -58,7 +60,7 @@ func (h *HttpHandler) Authorize(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if params.ResponseType == string(ResponseTypeCode) {
-		code, err := h.Service.GenerateCode(ctx, identity.Id(identityId), params.ClientId, redirectURI, params.Scope)
+		code, err := h.Service.GenerateCode(ctx, identity.Id(identityId), params)
 		if err != nil {
 			redirectURL := buildErrorRedirectURL(redirectURI, "server_error", "failed to generate code", params.ResponseType)
 			http.Redirect(w, r, redirectURL, http.StatusFound)
@@ -180,6 +182,10 @@ func mapErrorToCode(err error) string {
 	case errors.Is(err, ErrInvalidScope):
 		return "invalid_scope"
 	case errors.Is(err, ErrInvalidRedirectURI):
+		return "invalid_request"
+	case errors.Is(err, ErrInvalidCodeChallenge):
+		return "invalid_request"
+	case errors.Is(err, ErrInvalidCodeChallengeMethod):
 		return "invalid_request"
 	default:
 		return "server_error"

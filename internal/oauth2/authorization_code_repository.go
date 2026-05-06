@@ -14,15 +14,17 @@ import (
 )
 
 type authCodeDDB struct {
-	Id              string `dynamodbav:"id"`
-	Type            string `dynamodbav:"type"`
-	SecondaryLookup string `dynamodbav:"secondary-lookup"`
-	ResourceType    string `dynamodbav:"resource-type"`
-	ClientId        string `dynamodbav:"clientId"`
-	RedirectURI     string `dynamodbav:"redirectURI"`
-	Scope           string `dynamodbav:"scope"`
-	CreatedAt       int64  `dynamodbav:"createdAt"`
-	ExpireAt        int64  `dynamodbav:"expireAt"`
+	Id                  string `dynamodbav:"id"`
+	Type                string `dynamodbav:"type"`
+	SecondaryLookup     string `dynamodbav:"secondary-lookup"`
+	ResourceType        string `dynamodbav:"resource-type"`
+	ClientId            string `dynamodbav:"clientId"`
+	RedirectURI         string `dynamodbav:"redirectURI"`
+	Scope               string `dynamodbav:"scope"`
+	CodeChallenge       string `dynamodbav:"codeChallenge,omitempty"`
+	CodeChallengeMethod string `dynamodbav:"codeChallengeMethod,omitempty"`
+	CreatedAt           int64  `dynamodbav:"createdAt"`
+	ExpireAt            int64  `dynamodbav:"expireAt"`
 }
 
 type AuthorizationCodeRepository interface {
@@ -47,15 +49,17 @@ func NewAuthorizationCodeRepository(cfg aws.Config) *DynamoDBAuthorizationCodeRe
 
 func (r *DynamoDBAuthorizationCodeRepository) Save(ctx context.Context, code *AuthorizationCode) error {
 	dbCode := &authCodeDDB{
-		Id:              code.Code,
-		Type:            "authorization-code",
-		SecondaryLookup: code.IdentityId,
-		ResourceType:    "authorization-code",
-		ClientId:        code.ClientId,
-		RedirectURI:     code.RedirectURI,
-		Scope:           code.Scope,
-		CreatedAt:       code.CreatedAt,
-		ExpireAt:        code.ExpireAt,
+		Id:                  code.Code,
+		Type:                "authorization-code",
+		SecondaryLookup:     code.IdentityId,
+		ResourceType:        "authorization-code",
+		ClientId:            code.ClientId,
+		RedirectURI:         code.RedirectURI,
+		Scope:               code.Scope,
+		CodeChallenge:       code.CodeChallenge,
+		CodeChallengeMethod: code.CodeChallengeMethod,
+		CreatedAt:           code.CreatedAt,
+		ExpireAt:            code.ExpireAt,
 	}
 
 	item, err := attributevalue.MarshalMap(dbCode)
@@ -102,13 +106,15 @@ func (r *DynamoDBAuthorizationCodeRepository) FindByCode(ctx context.Context, co
 	}
 
 	return &AuthorizationCode{
-		Code:        dbCode.Id,
-		ClientId:    dbCode.ClientId,
-		IdentityId:  dbCode.SecondaryLookup,
-		RedirectURI: dbCode.RedirectURI,
-		Scope:       dbCode.Scope,
-		CreatedAt:   dbCode.CreatedAt,
-		ExpireAt:    dbCode.ExpireAt,
+		Code:                dbCode.Id,
+		ClientId:            dbCode.ClientId,
+		IdentityId:          dbCode.SecondaryLookup,
+		RedirectURI:         dbCode.RedirectURI,
+		Scope:               dbCode.Scope,
+		CodeChallenge:       dbCode.CodeChallenge,
+		CodeChallengeMethod: dbCode.CodeChallengeMethod,
+		CreatedAt:           dbCode.CreatedAt,
+		ExpireAt:            dbCode.ExpireAt,
 	}, nil
 }
 

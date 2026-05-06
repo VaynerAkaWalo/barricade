@@ -3,13 +3,15 @@ package oauth2
 import "time"
 
 type AuthorizationCode struct {
-	Code        string
-	ClientId    string
-	IdentityId  string
-	RedirectURI string
-	Scope       string
-	CreatedAt   int64
-	ExpireAt    int64
+	Code                string
+	ClientId            string
+	IdentityId          string
+	RedirectURI         string
+	Scope               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+	CreatedAt           int64
+	ExpireAt            int64
 }
 
 func NewAuthorizationCode(clientId string, identityId string, redirectURI string, scope string, expiryMinutes int) *AuthorizationCode {

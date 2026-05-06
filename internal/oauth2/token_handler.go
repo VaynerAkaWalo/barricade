@@ -32,6 +32,7 @@ func (h *TokenHttpHandler) Token(w http.ResponseWriter, r *http.Request) error {
 		RedirectURI:  r.PostFormValue("redirect_uri"),
 		ClientId:     clientId,
 		ClientSecret: clientSecret,
+		CodeVerifier: r.PostFormValue("code_verifier"),
 	}
 
 	result, err := h.Service.Exchange(ctx, params)
@@ -72,6 +73,10 @@ func mapTokenError(err error) error {
 	case err == ErrCodeExpired:
 		return xhttp.NewError("invalid_grant", http.StatusBadRequest)
 	case err == ErrCodeMismatch:
+		return xhttp.NewError("invalid_grant", http.StatusBadRequest)
+	case err == ErrMissingCodeVerifier:
+		return xhttp.NewError("invalid_grant", http.StatusBadRequest)
+	case err == ErrInvalidCodeVerifier:
 		return xhttp.NewError("invalid_grant", http.StatusBadRequest)
 	default:
 		return xhttp.NewError("server_error", http.StatusInternalServerError)

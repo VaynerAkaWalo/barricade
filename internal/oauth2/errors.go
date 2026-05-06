@@ -23,4 +23,8 @@ var (
 	ErrInvalidCode                     = errors.New("invalid authorization code")
 	ErrCodeExpired                     = errors.New("authorization code expired")
 	ErrCodeMismatch                    = errors.New("authorization code mismatch")
+	ErrInvalidCodeChallenge            = errors.New("invalid code challenge")
+	ErrInvalidCodeChallengeMethod      = errors.New("invalid code challenge method, only S256 is supported")
+	ErrInvalidCodeVerifier             = errors.New("invalid code verifier")
+	ErrMissingCodeVerifier             = errors.New("code verifier is required for PKCE authorization code")
 )
