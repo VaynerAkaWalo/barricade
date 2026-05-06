@@ -1,9 +1,11 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
-    "go test *": "allow",
-    "go build *": "allow",
-    "go vet *": "allow",
-    "golangci-lint run": "allow"
+    "bash": {
+      "go test *": "allow",
+      "go build *": "allow",
+      "go vet *": "allow",
+      "golangci-lint run": "allow"
+    }
   }
 }
