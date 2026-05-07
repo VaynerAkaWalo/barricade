@@ -13,12 +13,13 @@ import (
 )
 
 type TokenService struct {
-	IdentityStore IdentityRepository
-	ClientStore   ClientRepository
-	CodeStore     AuthorizationCodeRepository
-	KeyService    *keys.Service
-	Issuer        string
-	TokenExpiry   int
+	IdentityStore      IdentityRepository
+	ClientStore        ClientRepository
+	CodeStore          AuthorizationCodeRepository
+	KeyService         *keys.Service
+	Issuer             string
+	TokenExpiry        int
+	AccessTokenExpiry  int
 }
 
 type ExchangeTokenParams struct {
@@ -32,6 +33,7 @@ type ExchangeTokenParams struct {
 
 type TokenResult struct {
 	IDToken     string `json:"id_token"`
+	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
 	ExpiresIn   int    `json:"expires_in"`
 }
@@ -94,7 +96,7 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		return nil, ErrServerError
 	}
 
-	token, err := oidc.NewIdToken(oidc.IdTokenParams{
+	idToken, err := oidc.NewIdToken(oidc.IdTokenParams{
 		Key:           key,
 		Ident:         ident,
 		ClientId:      params.ClientId,
@@ -105,10 +107,23 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		return nil, ErrServerError
 	}
 
+	accessToken, err := oidc.NewAccessToken(oidc.AccessTokenParams{
+		Key:           key,
+		Ident:         ident,
+		ClientId:      params.ClientId,
+		Issuer:        s.Issuer,
+		Scope:         authCode.Scope,
+		ExpiryMinutes: s.AccessTokenExpiry,
+	})
+	if err != nil {
+		return nil, ErrServerError
+	}
+
 	return &TokenResult{
-		IDToken:   string(token),
-		TokenType: "Bearer",
-		ExpiresIn: s.TokenExpiry * 60,
+		IDToken:     string(idToken),
+		AccessToken: string(accessToken),
+		TokenType:   "Bearer",
+		ExpiresIn:   s.AccessTokenExpiry * 60,
 	}, nil
 }
 

@@ -41,6 +41,25 @@ func (k *Key) Sign(data []byte) ([]byte, error) {
 	}
 }
 
+func (k *Key) RSAPublicKey() (*rsa.PublicKey, error) {
+	block, _ := pem.Decode(k.PublicKey)
+	if block == nil {
+		return nil, ErrInvalidKey
+	}
+
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, ErrInvalidKey
+	}
+
+	rsaPublicKey, ok := key.(*rsa.PublicKey)
+	if !ok {
+		return nil, ErrInvalidKey
+	}
+
+	return rsaPublicKey, nil
+}
+
 func (k *Key) RSAPrivateKey() (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(k.PrivateKey)
 	if block == nil {
