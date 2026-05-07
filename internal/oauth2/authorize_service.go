@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type (
@@ -124,6 +125,7 @@ func (s *AuthorizeService) GenerateCode(ctx context.Context, identityId identity
 	authCode.Nonce = params.Nonce
 	authCode.CodeChallenge = params.CodeChallenge
 	authCode.CodeChallengeMethod = method
+	authCode.AuthTime = time.Now().Unix()
 
 	err = s.CodeStore.Save(ctx, authCode)
 	if err != nil {

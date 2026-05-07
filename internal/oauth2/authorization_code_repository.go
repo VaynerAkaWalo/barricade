@@ -24,6 +24,7 @@ type authCodeDDB struct {
 	State               string `dynamodbav:"state,omitempty"`
 	CodeChallenge       string `dynamodbav:"codeChallenge,omitempty"`
 	CodeChallengeMethod string `dynamodbav:"codeChallengeMethod,omitempty"`
+	AuthTime            int64  `dynamodbav:"authTime"`
 	CreatedAt           int64  `dynamodbav:"createdAt"`
 	ExpireAt            int64  `dynamodbav:"expireAt"`
 }
@@ -61,6 +62,7 @@ func (r *DynamoDBAuthorizationCodeRepository) Save(ctx context.Context, code *Au
 		State:               code.State,
 		CodeChallenge:       code.CodeChallenge,
 		CodeChallengeMethod: code.CodeChallengeMethod,
+		AuthTime:            code.AuthTime,
 		CreatedAt:           code.CreatedAt,
 		ExpireAt:            code.ExpireAt,
 	}
@@ -112,6 +114,7 @@ func (r *DynamoDBAuthorizationCodeRepository) FindByCode(ctx context.Context, co
 		State:               dbCode.State,
 		CodeChallenge:       dbCode.CodeChallenge,
 		CodeChallengeMethod: dbCode.CodeChallengeMethod,
+		AuthTime:            dbCode.AuthTime,
 		CreatedAt:           dbCode.CreatedAt,
 		ExpireAt:            dbCode.ExpireAt,
 	}, nil

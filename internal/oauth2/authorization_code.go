@@ -12,6 +12,7 @@ type AuthorizationCode struct {
 	State               string
 	CodeChallenge       string
 	CodeChallengeMethod string
+	AuthTime            int64
 	CreatedAt           int64
 	ExpireAt            int64
 }

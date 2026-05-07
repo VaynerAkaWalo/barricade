@@ -90,6 +90,10 @@ func main() {
 		KeyService: keyService,
 	}
 
+	discoveryHandler := oidc.DiscoveryHandler{
+		Issuer: cfg.IssuerURL,
+	}
+
 	authorizeService := oauth2.AuthorizeService{
 		ClientStore: clientRepository,
 		CodeStore:   authCodeRepository,
@@ -130,11 +134,11 @@ func main() {
 		ihttp.BarricadeAuthenticationProvider{
 			AuthenticationService: authNService,
 		},
-		[]string{"GET /health", "POST /v1/login", "POST /v1/register", "GET /.well-known/jwks.json", "GET /v1/oauth2/authorize", "POST /v1/oauth2/token", "GET /v1/oauth2/userinfo"}...)
+		[]string{"GET /health", "POST /v1/login", "POST /v1/register", "GET /.well-known/jwks.json", "GET /.well-known/openid-configuration", "GET /v1/oauth2/authorize", "POST /v1/oauth2/token", "GET /v1/oauth2/userinfo"}...)
 
 	httpServer := xhttp.Server{
 		Addr:     ":8080",
-		Handlers: []xhttp.RouteHandler{&identityHandler, &clientHandler, &authNHandler, &infrastructure.HealthHttpHandler{}, &jwksHandler, &authorizeHandler, &tokenHandler, &userinfoHandler},
+		Handlers: []xhttp.RouteHandler{&identityHandler, &clientHandler, &authNHandler, &infrastructure.HealthHttpHandler{}, &jwksHandler, &discoveryHandler, &authorizeHandler, &tokenHandler, &userinfoHandler},
 		AuthN:    authenticator,
 	}
 

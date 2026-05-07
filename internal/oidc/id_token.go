@@ -3,6 +3,8 @@ package oidc
 import (
 	"barricade/internal/identity"
 	"barricade/internal/keys"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"time"
 
@@ -19,8 +21,15 @@ type (
 		Issuer        string
 		Nonce         string
 		ExpiryMinutes int
+		AuthTime      int64
+		AccessToken   string
 	}
 )
+
+func atHash(accessToken string) string {
+	hash := sha256.Sum256([]byte(accessToken))
+	return base64.RawURLEncoding.EncodeToString(hash[:16])
+}
 
 func NewIdToken(params IdTokenParams) (IdToken, error) {
 	privateKey, err := params.Key.RSAPrivateKey()
@@ -32,11 +41,18 @@ func NewIdToken(params IdTokenParams) (IdToken, error) {
 	exp := now.Add(time.Duration(params.ExpiryMinutes) * time.Minute)
 
 	claims := jwt.MapClaims{
-		"iss": params.Issuer,
-		"sub": string(params.Ident.Id),
-		"aud": params.ClientId,
-		"exp": exp.Unix(),
-		"iat": now.Unix(),
+		"iss":       params.Issuer,
+		"sub":       string(params.Ident.Id),
+		"aud":       params.ClientId,
+		"exp":       exp.Unix(),
+		"iat":       now.Unix(),
+		"auth_time": params.AuthTime,
+		"acr":       "0",
+		"amr":       []string{"pwd"},
+	}
+
+	if params.AccessToken != "" {
+		claims["at_hash"] = atHash(params.AccessToken)
 	}
 
 	if params.Nonce != "" {

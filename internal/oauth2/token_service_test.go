@@ -620,6 +620,56 @@ func TestTokenExchangeWithNonce(t *testing.T) {
 	assert.Equal(t, "test-nonce-value", claims["nonce"])
 }
 
+func TestTokenExchangeIdTokenClaims(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "claims-test-code-123"
+	code.Nonce = "test-nonce"
+	code.AuthTime = 1715000000
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	result, err := module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "claims-test-code-123",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: string(clientResult.ClientSecret),
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, result.IDToken)
+
+	token, _, err := jwt.NewParser().ParseUnverified(result.IDToken, jwt.MapClaims{})
+	assert.NoError(t, err)
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	assert.True(t, ok)
+
+	assert.Equal(t, "https://test.issuer.com", claims["iss"])
+	assert.Equal(t, string(ident.Id), claims["sub"])
+	assert.Equal(t, string(clientResult.Client.Id), claims["aud"])
+	assert.Equal(t, "test-nonce", claims["nonce"])
+	assert.Equal(t, float64(1715000000), claims["auth_time"])
+	assert.Equal(t, "0", claims["acr"])
+	assert.Equal(t, []interface{}{"pwd"}, claims["amr"])
+
+	atHash, ok := claims["at_hash"].(string)
+	assert.True(t, ok)
+	assert.NotEmpty(t, atHash)
+}
+
 func TestTokenExchangeWithoutNonce(t *testing.T) {
 	module := setupTokenModule(t)
 
