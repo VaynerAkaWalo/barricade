@@ -101,6 +101,7 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		Ident:         ident,
 		ClientId:      params.ClientId,
 		Issuer:        s.Issuer,
+		Nonce:         authCode.Nonce,
 		ExpiryMinutes: s.TokenExpiry,
 	})
 	if err != nil {

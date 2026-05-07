@@ -8,6 +8,8 @@ type AuthorizationCode struct {
 	IdentityId          string
 	RedirectURI         string
 	Scope               string
+	Nonce               string
+	State               string
 	CodeChallenge       string
 	CodeChallengeMethod string
 	CreatedAt           int64

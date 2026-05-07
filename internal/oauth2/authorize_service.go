@@ -31,6 +31,7 @@ type (
 		Scope               string
 		RedirectURI         string
 		State               string
+		Nonce               string
 		CodeChallenge       string
 		CodeChallengeMethod string
 	}
@@ -119,6 +120,8 @@ func (s *AuthorizeService) GenerateCode(ctx context.Context, identityId identity
 
 	authCode := NewAuthorizationCode(params.ClientId, string(identityId), params.RedirectURI, params.Scope, s.CodeExpiry)
 	authCode.Code = code
+	authCode.State = params.State
+	authCode.Nonce = params.Nonce
 	authCode.CodeChallenge = params.CodeChallenge
 	authCode.CodeChallengeMethod = method
 

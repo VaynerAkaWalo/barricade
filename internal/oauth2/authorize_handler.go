@@ -31,6 +31,7 @@ func (h *HttpHandler) Authorize(w http.ResponseWriter, r *http.Request) error {
 		Scope:               r.URL.Query().Get("scope"),
 		RedirectURI:         r.URL.Query().Get("redirect_uri"),
 		State:               r.URL.Query().Get("state"),
+		Nonce:               r.URL.Query().Get("nonce"),
 		CodeChallenge:       r.URL.Query().Get("code_challenge"),
 		CodeChallengeMethod: r.URL.Query().Get("code_challenge_method"),
 	}

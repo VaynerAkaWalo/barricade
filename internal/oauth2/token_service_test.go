@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -579,4 +580,80 @@ func TestTokenExchangeCodeReplay(t *testing.T) {
 		ClientSecret: string(clientResult.ClientSecret),
 	})
 	assert.ErrorIs(t, err, ErrInvalidCode)
+}
+
+func TestTokenExchangeWithNonce(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "nonce-code-123"
+	code.Nonce = "test-nonce-value"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	result, err := module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "nonce-code-123",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: string(clientResult.ClientSecret),
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, result.IDToken)
+
+	token, _, err := jwt.NewParser().ParseUnverified(result.IDToken, jwt.MapClaims{})
+	assert.NoError(t, err)
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	assert.True(t, ok)
+	assert.Equal(t, "test-nonce-value", claims["nonce"])
+}
+
+func TestTokenExchangeWithoutNonce(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "no-nonce-code-123"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	result, err := module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "no-nonce-code-123",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: string(clientResult.ClientSecret),
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, result.IDToken)
+
+	token, _, err := jwt.NewParser().ParseUnverified(result.IDToken, jwt.MapClaims{})
+	assert.NoError(t, err)
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	assert.True(t, ok)
+	_, hasNonce := claims["nonce"]
+	assert.False(t, hasNonce)
 }
