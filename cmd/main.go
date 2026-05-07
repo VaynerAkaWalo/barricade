@@ -91,13 +91,9 @@ func main() {
 	}
 
 	authorizeService := oauth2.AuthorizeService{
-		IdentityStore: identityRepository,
-		ClientStore:   clientRepository,
-		CodeStore:     authCodeRepository,
-		KeyService:    keyService,
-		Issuer:        cfg.IssuerURL,
-		TokenExpiry:   cfg.TokenExpiryMinutes,
-		CodeExpiry:    cfg.CodeExpiryMinutes,
+		ClientStore: clientRepository,
+		CodeStore:   authCodeRepository,
+		CodeExpiry:  cfg.CodeExpiryMinutes,
 	}
 
 	authorizeHandler := oauth2.HttpHandler{

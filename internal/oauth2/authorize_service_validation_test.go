@@ -33,24 +33,12 @@ func TestAuthorizeServiceValidateMissingOpenIDScope(t *testing.T) {
 	svc := &AuthorizeService{}
 
 	err := svc.Validate(AuthorizationParams{
-		ResponseType: "id_token",
+		ResponseType: "code",
 		ClientId:     "test-client",
 		Scope:        "profile email",
 	})
 
 	assert.ErrorIs(t, err, ErrInvalidScope)
-}
-
-func TestAuthorizeServiceValidateHappyPath(t *testing.T) {
-	svc := &AuthorizeService{}
-
-	err := svc.Validate(AuthorizationParams{
-		ResponseType: "id_token",
-		ClientId:     "test-client",
-		Scope:        "openid profile",
-	})
-
-	assert.NoError(t, err)
 }
 
 func TestAuthorizeServiceValidateCodeResponseType(t *testing.T) {
@@ -139,16 +127,4 @@ func TestAuthorizeServiceValidatePKCEChallengeTooLong(t *testing.T) {
 	assert.ErrorIs(t, err, ErrInvalidCodeChallenge)
 }
 
-func TestAuthorizeServiceValidatePKCEIgnoresForIdToken(t *testing.T) {
-	svc := &AuthorizeService{}
 
-	err := svc.Validate(AuthorizationParams{
-		ResponseType:        "id_token",
-		ClientId:            "test-client",
-		Scope:               "openid",
-		CodeChallenge:       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
-		CodeChallengeMethod: "S256",
-	})
-
-	assert.NoError(t, err)
-}

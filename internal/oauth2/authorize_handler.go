@@ -5,7 +5,6 @@ import (
 	"barricade/internal/identity"
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -46,7 +45,7 @@ func (h *HttpHandler) Authorize(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if err := h.Service.Validate(params); err != nil {
-		redirectURL := buildErrorRedirectURL(redirectURI, mapErrorToCode(err), err.Error(), params.ResponseType)
+		redirectURL := buildErrorRedirectURL(redirectURI, mapErrorToCode(err), err.Error())
 		http.Redirect(w, r, redirectURL, http.StatusFound)
 		return nil
 	}
@@ -59,27 +58,14 @@ func (h *HttpHandler) Authorize(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	if params.ResponseType == string(ResponseTypeCode) {
-		code, err := h.Service.GenerateCode(ctx, identity.Id(identityId), params)
-		if err != nil {
-			redirectURL := buildErrorRedirectURL(redirectURI, "server_error", "failed to generate code", params.ResponseType)
-			http.Redirect(w, r, redirectURL, http.StatusFound)
-			return nil
-		}
-
-		redirectURL := buildCodeRedirectURL(redirectURI, code, params.State)
-		http.Redirect(w, r, redirectURL, http.StatusFound)
-		return nil
-	}
-
-	result, err := h.Service.Authorize(ctx, identity.Id(identityId), params.ClientId)
+	code, err := h.Service.GenerateCode(ctx, identity.Id(identityId), params)
 	if err != nil {
-		redirectURL := buildErrorRedirectURL(redirectURI, "server_error", "failed to generate token", params.ResponseType)
+		redirectURL := buildErrorRedirectURL(redirectURI, "server_error", "failed to generate code")
 		http.Redirect(w, r, redirectURL, http.StatusFound)
 		return nil
 	}
 
-	redirectURL := buildSuccessRedirectURL(redirectURI, result, h.Service.TokenExpiry, params.State)
+	redirectURL := buildCodeRedirectURL(redirectURI, code, params.State)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 	return nil
 }
@@ -113,25 +99,6 @@ func (h *HttpHandler) buildLoginRedirectURL(r *http.Request) string {
 	return u.String()
 }
 
-func buildSuccessRedirectURL(redirectURI string, result *AuthorizationResult, tokenExpiry int, state string) string {
-	u, err := url.Parse(redirectURI)
-	if err != nil {
-		return redirectURI
-	}
-
-	fragment := url.Values{}
-	fragment.Set("id_token", string(result.IDToken))
-	fragment.Set("token_type", "Bearer")
-	fragment.Set("expires_in", fmt.Sprintf("%d", tokenExpiry*60))
-	if state != "" {
-		fragment.Set("state", state)
-	}
-
-	u.Fragment = fragment.Encode()
-
-	return u.String()
-}
-
 func buildCodeRedirectURL(redirectURI string, code string, state string) string {
 	u, err := url.Parse(redirectURI)
 	if err != nil {
@@ -148,27 +115,18 @@ func buildCodeRedirectURL(redirectURI string, code string, state string) string 
 	return u.String()
 }
 
-func buildErrorRedirectURL(redirectURI string, errorCode string, errorDescription string, responseType string) string {
+func buildErrorRedirectURL(redirectURI string, errorCode string, errorDescription string) string {
 	u, err := url.Parse(redirectURI)
 	if err != nil {
 		return redirectURI
 	}
 
-	values := url.Values{}
-	values.Set("error", errorCode)
+	q := u.Query()
+	q.Set("error", errorCode)
 	if errorDescription != "" {
-		values.Set("error_description", errorDescription)
+		q.Set("error_description", errorDescription)
 	}
-
-	if responseType == string(ResponseTypeCode) {
-		q := u.Query()
-		for k, v := range values {
-			q[k] = v
-		}
-		u.RawQuery = q.Encode()
-	} else {
-		u.Fragment = values.Encode()
-	}
+	u.RawQuery = q.Encode()
 
 	return u.String()
 }
