@@ -14,20 +14,27 @@ import (
 type (
 	ClientId     string
 	ClientSecret string
-
-	Client struct {
-		Id          ClientId
-		OwnerId     string
-		Name        string
-		Domain      string
-		SecretHash  []byte
-		RedirectURI string
-		CreatedAt   int64
-		UpdatedAt   int64
-	}
+	ClientType   string
 )
 
-func NewClient(ownerId string, name string, domain string, redirectURI string) (*Client, ClientSecret, error) {
+const (
+	ClientTypePublic       ClientType = "public"
+	ClientTypeConfidential ClientType = "confidential"
+)
+
+type Client struct {
+	Id          ClientId
+	OwnerId     string
+	Name        string
+	Domain      string
+	SecretHash  []byte
+	RedirectURI string
+	Type        ClientType
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
+func NewClient(ownerId string, name string, domain string, redirectURI string, clientType ClientType) (*Client, ClientSecret, error) {
 	if ownerId == "" {
 		return nil, "", ErrClientEmptyOwnerId
 	}
@@ -41,6 +48,10 @@ func NewClient(ownerId string, name string, domain string, redirectURI string) (
 		return nil, "", ErrClientEmptyRedirectURI
 	}
 
+	if clientType != ClientTypePublic && clientType != ClientTypeConfidential {
+		return nil, "", ErrInvalidClientType
+	}
+
 	parsedURI, err := url.ParseRequestURI(redirectURI)
 	if err != nil {
 		return nil, "", ErrClientInvalidRedirectURI
@@ -50,14 +61,21 @@ func NewClient(ownerId string, name string, domain string, redirectURI string) (
 		return nil, "", ErrClientRedirectURIDomainMismatch
 	}
 
-	rawSecret, err := generateClientSecret()
-	if err != nil {
-		return nil, "", err
-	}
+	var (
+		rawSecret ClientSecret
+		hash      []byte
+	)
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(rawSecret), 14)
-	if err != nil {
-		return nil, "", err
+	if clientType == ClientTypeConfidential {
+		rawSecret, err = generateClientSecret()
+		if err != nil {
+			return nil, "", err
+		}
+
+		hash, err = bcrypt.GenerateFromPassword([]byte(rawSecret), 14)
+		if err != nil {
+			return nil, "", err
+		}
 	}
 
 	createdAt := time.Now().UnixMilli()
@@ -69,9 +87,10 @@ func NewClient(ownerId string, name string, domain string, redirectURI string) (
 		Domain:      domain,
 		SecretHash:  hash,
 		RedirectURI: redirectURI,
+		Type:        clientType,
 		CreatedAt:   createdAt,
 		UpdatedAt:   createdAt,
-	}, ClientSecret(rawSecret), nil
+	}, rawSecret, nil
 }
 
 func generateClientSecret() (ClientSecret, error) {

@@ -25,6 +25,7 @@ type clientDDB struct {
 	Domain            string `dynamodbav:"domain"`
 	SecretHash        []byte `dynamodbav:"secret"`
 	RedirectURI       string `dynamodbav:"redirectURI"`
+	ClientType        string `dynamodbav:"clientType"`
 	CreatedAt         int64  `dynamodbav:"createdAt"`
 	UpdatedAt         int64  `dynamodbav:"updatedAt"`
 }
@@ -45,6 +46,7 @@ func convertClientToDB(c *Client) *clientDDB {
 		Domain:            c.Domain,
 		SecretHash:        c.SecretHash,
 		RedirectURI:       c.RedirectURI,
+		ClientType:        string(c.Type),
 		CreatedAt:         c.CreatedAt,
 		UpdatedAt:         c.UpdatedAt,
 	}
@@ -58,6 +60,7 @@ func convertClientFromDB(db *clientDDB) *Client {
 		Domain:      db.Domain,
 		SecretHash:  db.SecretHash,
 		RedirectURI: db.RedirectURI,
+		Type:        ClientType(db.ClientType),
 		CreatedAt:   db.CreatedAt,
 		UpdatedAt:   db.UpdatedAt,
 	}

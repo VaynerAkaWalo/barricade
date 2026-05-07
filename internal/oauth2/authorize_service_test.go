@@ -311,6 +311,7 @@ func TestAuthorizeServiceGenerateCodeHappyPath(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -344,6 +345,7 @@ func TestAuthorizeServiceGenerateCodeWithPKCE(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -377,6 +379,7 @@ func TestAuthorizeServiceGenerateCodeWithPKCEDefaultsMethod(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -409,6 +412,7 @@ func TestAuthorizeServiceGenerateCodeWithStateAndNonce(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -429,6 +433,56 @@ func TestAuthorizeServiceGenerateCodeWithStateAndNonce(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "test-state-value", stored.State)
 	assert.Equal(t, "test-nonce-value", stored.Nonce)
+}
+
+func TestValidateClientRedirectPublicClientWithoutPKCERejected(t *testing.T) {
+	module := setupOAuth2Module(t)
+
+	_, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypePublic,
+	})
+	assert.NoError(t, err)
+
+	params := AuthorizationParams{
+		ClientId:    string(clientResult.Client.Id),
+		RedirectURI: "https://example.com/callback",
+	}
+
+	_, _, err = module.authorizeService.ValidateClientRedirect(context.Background(), params)
+	assert.ErrorIs(t, err, ErrPKCERequired)
+}
+
+func TestValidateClientRedirectPublicClientWithPKCEAllowed(t *testing.T) {
+	module := setupOAuth2Module(t)
+
+	_, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypePublic,
+	})
+	assert.NoError(t, err)
+
+	params := AuthorizationParams{
+		ClientId:            string(clientResult.Client.Id),
+		RedirectURI:         "https://example.com/callback",
+		CodeChallenge:       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+		CodeChallengeMethod: "S256",
+	}
+
+	_, _, err = module.authorizeService.ValidateClientRedirect(context.Background(), params)
+	assert.NoError(t, err)
 }
 
 func TestValidateClientRedirectUnregisteredClient(t *testing.T) {
@@ -454,6 +508,7 @@ func TestValidateClientRedirectRedirectURIDomainMismatch(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -477,6 +532,7 @@ func TestValidateClientRedirectUsesRegisteredURIAsFallback(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -502,6 +558,7 @@ func TestValidateClientRedirectSubdomainAllowed(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 

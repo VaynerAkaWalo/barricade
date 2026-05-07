@@ -158,6 +158,8 @@ func mapAuthorizeError(err error) error {
 		return xhttp.NewError(mapErrorToCode(err), http.StatusBadRequest)
 	case errors.Is(err, ErrUnauthorizedClient):
 		return xhttp.NewError("unauthorized client", http.StatusUnauthorized)
+	case errors.Is(err, ErrPKCERequired):
+		return xhttp.NewError("PKCE is required for this client", http.StatusBadRequest)
 	case errors.Is(err, ErrRedirectURIMismatch):
 		return xhttp.NewError("redirect uri mismatch", http.StatusBadRequest)
 	default:

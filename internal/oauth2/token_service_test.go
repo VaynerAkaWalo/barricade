@@ -266,6 +266,7 @@ func TestTokenExchangeHappyPath(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -308,6 +309,7 @@ func TestTokenExchangeInvalidClient(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -337,6 +339,7 @@ func TestTokenExchangeInvalidCode(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -360,6 +363,7 @@ func TestTokenExchangeExpiredCode(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -389,6 +393,7 @@ func TestTokenExchangeRedirectURIMismatch(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -418,6 +423,7 @@ func TestTokenExchangeWithPKCEHappyPath(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -445,6 +451,41 @@ func TestTokenExchangeWithPKCEHappyPath(t *testing.T) {
 	assert.Equal(t, 3600, result.ExpiresIn)
 }
 
+func TestTokenExchangePublicClientRejectsSecret(t *testing.T) {
+	module := setupTokenModule(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypePublic,
+	})
+
+	codeVerifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	codeChallenge := "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+
+	code := NewAuthorizationCode(string(clientResult.Client.Id), string(ident.Id), "https://example.com/callback", "openid", 5)
+	code.Code = "public-client-with-secret"
+	code.CodeChallenge = codeChallenge
+	code.CodeChallengeMethod = "S256"
+	err = module.authCodeRepository.Save(context.Background(), code)
+	assert.NoError(t, err)
+
+	_, err = module.tokenService.Exchange(context.Background(), ExchangeTokenParams{
+		GrantType:    "authorization_code",
+		Code:         "public-client-with-secret",
+		RedirectURI:  "https://example.com/callback",
+		ClientId:     string(clientResult.Client.Id),
+		ClientSecret: "some-secret",
+		CodeVerifier: codeVerifier,
+	})
+	assert.ErrorIs(t, err, ErrInvalidClient)
+}
+
 func TestTokenExchangeWithPKCEMissingVerifier(t *testing.T) {
 	module := setupTokenModule(t)
 
@@ -456,6 +497,7 @@ func TestTokenExchangeWithPKCEMissingVerifier(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -487,6 +529,7 @@ func TestTokenExchangeWithPKCEInvalidVerifier(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -518,6 +561,7 @@ func TestTokenExchangeWithPKCEPublicClientNoSecret(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypePublic,
 	})
 	assert.NoError(t, err)
 
@@ -555,6 +599,7 @@ func TestTokenExchangeCodeReplay(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -593,6 +638,7 @@ func TestTokenExchangeWithNonce(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -631,6 +677,7 @@ func TestTokenExchangeIdTokenClaims(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -681,6 +728,7 @@ func TestTokenExchangeWithoutNonce(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 

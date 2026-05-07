@@ -51,6 +51,12 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		return nil, err
 	}
 
+	if client.Type == ClientTypePublic {
+		if params.ClientSecret != "" {
+			return nil, ErrInvalidClient
+		}
+	}
+
 	authCode, err := s.CodeStore.FindByCode(ctx, params.Code)
 	if err != nil {
 		return nil, err

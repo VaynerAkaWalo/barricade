@@ -13,6 +13,7 @@ type RegisterClientParams struct {
 	Name        string
 	Domain      string
 	RedirectURI string
+	ClientType  ClientType
 }
 
 type RegisterClientResult struct {
@@ -25,7 +26,7 @@ type ClientService struct {
 }
 
 func (s *ClientService) Register(ctx context.Context, params RegisterClientParams) (*RegisterClientResult, error) {
-	c, secret, err := NewClient(params.OwnerId, params.Name, params.Domain, params.RedirectURI)
+	c, secret, err := NewClient(params.OwnerId, params.Name, params.Domain, params.RedirectURI, params.ClientType)
 	if err != nil {
 		return nil, err
 	}

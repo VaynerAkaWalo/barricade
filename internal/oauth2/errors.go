@@ -29,4 +29,6 @@ var (
 	ErrMissingCodeVerifier             = errors.New("code verifier is required for PKCE authorization code")
 	ErrInvalidToken                    = errors.New("invalid token")
 	ErrInsufficientScope               = errors.New("insufficient scope")
+	ErrInvalidClientType               = errors.New("invalid client type")
+	ErrPKCERequired                    = errors.New("PKCE is required for public clients")
 )
