@@ -88,29 +88,57 @@ func setupClientModule(t *testing.T) *clientModule {
 }
 
 func TestClientRegisterEmptyOwnerId(t *testing.T) {
-	_, _, err := NewClient("", TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, TEST_CLIENT_REDIRECT_URI)
+	_, _, err := NewClient("", TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, TEST_CLIENT_REDIRECT_URI, ClientTypeConfidential)
 	assert.ErrorIs(t, err, ErrClientEmptyOwnerId)
 }
 
 func TestClientRegisterInputValidation(t *testing.T) {
-	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, "", TEST_CLIENT_DOMAIN, TEST_CLIENT_REDIRECT_URI)
+	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, "", TEST_CLIENT_DOMAIN, TEST_CLIENT_REDIRECT_URI, ClientTypeConfidential)
 	assert.ErrorIs(t, err, ErrClientEmptyName)
 
-	_, _, err = NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, "", TEST_CLIENT_REDIRECT_URI)
+	_, _, err = NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, "", TEST_CLIENT_REDIRECT_URI, ClientTypeConfidential)
 	assert.ErrorIs(t, err, ErrClientEmptyDomain)
 
-	_, _, err = NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, "")
+	_, _, err = NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, "", ClientTypeConfidential)
 	assert.ErrorIs(t, err, ErrClientEmptyRedirectURI)
 }
 
 func TestClientRegisterInvalidRedirectURI(t *testing.T) {
-	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, "not-a-url")
+	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, "not-a-url", ClientTypeConfidential)
 	assert.ErrorIs(t, err, ErrClientInvalidRedirectURI)
 }
 
 func TestClientRegisterRedirectURIDomainMismatch(t *testing.T) {
-	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, "https://other.com/callback")
+	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, "https://other.com/callback", ClientTypeConfidential)
 	assert.ErrorIs(t, err, ErrClientRedirectURIDomainMismatch)
+}
+
+func TestClientRegisterInvalidClientType(t *testing.T) {
+	_, _, err := NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, TEST_CLIENT_REDIRECT_URI, "invalid")
+	assert.ErrorIs(t, err, ErrInvalidClientType)
+
+	_, _, err = NewClient(TEST_CLIENT_OWNER_ID, TEST_CLIENT_NAME, TEST_CLIENT_DOMAIN, TEST_CLIENT_REDIRECT_URI, ClientType(""))
+	assert.ErrorIs(t, err, ErrInvalidClientType)
+}
+
+func TestClientRegisterPublicClientNoSecret(t *testing.T) {
+	module := setupClientModule(t)
+
+	result, err := module.service.Register(context.Background(), RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        TEST_CLIENT_NAME,
+		Domain:      TEST_CLIENT_DOMAIN,
+		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+		ClientType:  ClientTypePublic,
+	})
+	assert.NoError(t, err)
+	assert.Empty(t, result.ClientSecret)
+	assert.Nil(t, result.Client.SecretHash)
+	assert.Equal(t, ClientTypePublic, result.Client.Type)
+
+	stored, err := module.repository.FindById(context.Background(), result.Client.Id)
+	assert.NoError(t, err)
+	assert.Equal(t, result.Client, stored)
 }
 
 func TestClientRegisterSubdomainAllowed(t *testing.T) {
@@ -121,6 +149,7 @@ func TestClientRegisterSubdomainAllowed(t *testing.T) {
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: "https://sub.example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, result.Client.Id)
@@ -134,6 +163,7 @@ func TestClientRegisterHappyPath(t *testing.T) {
 		Name:        TEST_CLIENT_NAME,
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -141,6 +171,7 @@ func TestClientRegisterHappyPath(t *testing.T) {
 	assert.Equal(t, TEST_CLIENT_OWNER_ID, result.Client.OwnerId)
 	assert.Equal(t, TEST_CLIENT_DOMAIN, result.Client.Domain)
 	assert.Equal(t, TEST_CLIENT_REDIRECT_URI, result.Client.RedirectURI)
+	assert.Equal(t, ClientTypeConfidential, result.Client.Type)
 	assert.NotEmpty(t, result.Client.Id)
 	assert.NotEmpty(t, result.ClientSecret)
 	assert.Nil(t, bcrypt.CompareHashAndPassword(result.Client.SecretHash, []byte(result.ClientSecret)))
@@ -167,6 +198,7 @@ func TestClientFindAllHappyPath(t *testing.T) {
 		Name:        "app-1",
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -175,6 +207,7 @@ func TestClientFindAllHappyPath(t *testing.T) {
 		Name:        "app-2",
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -183,6 +216,7 @@ func TestClientFindAllHappyPath(t *testing.T) {
 		Name:        "app-3",
 		Domain:      TEST_CLIENT_DOMAIN,
 		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 

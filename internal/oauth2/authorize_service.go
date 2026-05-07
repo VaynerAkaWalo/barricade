@@ -53,6 +53,10 @@ func (s *AuthorizeService) ValidateClientRedirect(ctx context.Context, params Au
 		return nil, "", err
 	}
 
+	if client.Type == ClientTypePublic && params.CodeChallenge == "" {
+		return nil, "", ErrPKCERequired
+	}
+
 	redirectURI := params.RedirectURI
 	if redirectURI == "" {
 		redirectURI = client.RedirectURI

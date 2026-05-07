@@ -14,11 +14,12 @@ type registerClientRequest struct {
 	Name        string `json:"name"`
 	Domain      string `json:"domain"`
 	RedirectURI string `json:"redirectURI"`
+	ClientType  string `json:"clientType"`
 }
 
 type registerClientResponse struct {
 	ClientId     string `json:"clientId"`
-	ClientSecret string `json:"clientSecret"`
+	ClientSecret string `json:"clientSecret,omitempty"`
 }
 
 type listClientResponse struct {
@@ -26,6 +27,7 @@ type listClientResponse struct {
 	Name        string `json:"name"`
 	Domain      string `json:"domain"`
 	RedirectURI string `json:"redirectURI"`
+	Type        string `json:"type"`
 	CreatedAt   int64  `json:"createdAt"`
 	UpdatedAt   int64  `json:"updatedAt"`
 }
@@ -57,6 +59,7 @@ func (h *ClientHttpHandler) Register(w http.ResponseWriter, r *http.Request) err
 		Name:        request.Name,
 		Domain:      request.Domain,
 		RedirectURI: request.RedirectURI,
+		ClientType:  ClientType(request.ClientType),
 	})
 	if err != nil {
 		return mapClientError(r.Context(), err)
@@ -89,6 +92,7 @@ func (h *ClientHttpHandler) List(w http.ResponseWriter, r *http.Request) error {
 			Name:        c.Name,
 			Domain:      c.Domain,
 			RedirectURI: c.RedirectURI,
+			Type:        string(c.Type),
 			CreatedAt:   c.CreatedAt,
 			UpdatedAt:   c.UpdatedAt,
 		})
@@ -99,6 +103,8 @@ func (h *ClientHttpHandler) List(w http.ResponseWriter, r *http.Request) error {
 
 func mapClientError(ctx context.Context, err error) error {
 	switch {
+	case errors.Is(err, ErrInvalidClientType):
+		return xhttp.NewError("client type must be 'public' or 'confidential'", http.StatusBadRequest)
 	case errors.Is(err, ErrClientEmptyOwnerId):
 		return xhttp.NewError("unauthorized", http.StatusUnauthorized)
 	case errors.Is(err, ErrClientEmptyName):

@@ -24,6 +24,7 @@ func TestTokenHandlerExchangeHappyPath(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -63,6 +64,7 @@ func TestTokenHandlerInvalidClient(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -119,6 +121,7 @@ func TestTokenHandlerExchangeWithBasicAuth(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -159,6 +162,7 @@ func TestTokenHandlerExchangeWithPKCEHappyPath(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -203,6 +207,7 @@ func TestTokenHandlerExchangeBasicAuthWithPKCE(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
@@ -240,6 +245,7 @@ func TestTokenHandlerBasicAuthOverridesBody(t *testing.T) {
 		Name:        "test-app",
 		Domain:      "example.com",
 		RedirectURI: "https://example.com/callback",
+		ClientType:  ClientTypeConfidential,
 	})
 	assert.NoError(t, err)
 
