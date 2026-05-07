@@ -124,6 +124,15 @@ func (r *DynamoDBClientRepository) FindById(ctx context.Context, id ClientId) (*
 	return convertClientFromDB(&dbEntity), nil
 }
 
+func (r *DynamoDBClientRepository) Delete(ctx context.Context, id ClientId) error {
+	_, err := r.Client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: r.Table,
+		Key:       clientKey(id),
+	})
+
+	return err
+}
+
 func (r *DynamoDBClientRepository) FindAll(ctx context.Context) ([]*Client, error) {
 	var result []*Client
 

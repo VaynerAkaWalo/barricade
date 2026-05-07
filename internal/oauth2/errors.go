@@ -31,4 +31,5 @@ var (
 	ErrInsufficientScope               = errors.New("insufficient scope")
 	ErrInvalidClientType               = errors.New("invalid client type")
 	ErrPKCERequired                    = errors.New("PKCE is required for public clients")
+	ErrClientOwnerMismatch             = errors.New("client owner mismatch")
 )

@@ -190,6 +190,52 @@ func TestClientFindByIdNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, ErrClientNotFound)
 }
 
+func TestClientDeleteHappyPath(t *testing.T) {
+	module := setupClientModule(t)
+
+	result, err := module.service.Register(context.Background(), RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        TEST_CLIENT_NAME,
+		Domain:      TEST_CLIENT_DOMAIN,
+		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+		ClientType:  ClientTypeConfidential,
+	})
+	assert.NoError(t, err)
+
+	err = module.service.Delete(context.Background(), TEST_CLIENT_OWNER_ID, result.Client.Id)
+	assert.NoError(t, err)
+
+	_, err = module.repository.FindById(context.Background(), result.Client.Id)
+	assert.ErrorIs(t, err, ErrClientNotFound)
+}
+
+func TestClientDeleteNotFound(t *testing.T) {
+	module := setupClientModule(t)
+
+	err := module.service.Delete(context.Background(), TEST_CLIENT_OWNER_ID, "nonexistent")
+	assert.ErrorIs(t, err, ErrClientNotFound)
+}
+
+func TestClientDeleteOwnerMismatch(t *testing.T) {
+	module := setupClientModule(t)
+
+	result, err := module.service.Register(context.Background(), RegisterClientParams{
+		OwnerId:     TEST_CLIENT_OWNER_ID,
+		Name:        TEST_CLIENT_NAME,
+		Domain:      TEST_CLIENT_DOMAIN,
+		RedirectURI: TEST_CLIENT_REDIRECT_URI,
+		ClientType:  ClientTypeConfidential,
+	})
+	assert.NoError(t, err)
+
+	err = module.service.Delete(context.Background(), "other-owner", result.Client.Id)
+	assert.ErrorIs(t, err, ErrClientOwnerMismatch)
+
+	stored, err := module.repository.FindById(context.Background(), result.Client.Id)
+	assert.NoError(t, err)
+	assert.Equal(t, result.Client, stored)
+}
+
 func TestClientFindAllHappyPath(t *testing.T) {
 	module := setupClientModule(t)
 
