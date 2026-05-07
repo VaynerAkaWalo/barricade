@@ -14,7 +14,7 @@ type registerClientRequest struct {
 	Name        string `json:"name"`
 	Domain      string `json:"domain"`
 	RedirectURI string `json:"redirectURI"`
-	ClientType  string `json:"clientType"`
+	ClientType  string `json:"type"`
 }
 
 type registerClientResponse struct {
