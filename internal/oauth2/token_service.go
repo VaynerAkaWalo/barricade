@@ -96,18 +96,6 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		return nil, ErrServerError
 	}
 
-	idToken, err := oidc.NewIdToken(oidc.IdTokenParams{
-		Key:           key,
-		Ident:         ident,
-		ClientId:      params.ClientId,
-		Issuer:        s.Issuer,
-		Nonce:         authCode.Nonce,
-		ExpiryMinutes: s.TokenExpiry,
-	})
-	if err != nil {
-		return nil, ErrServerError
-	}
-
 	accessToken, err := oidc.NewAccessToken(oidc.AccessTokenParams{
 		Key:           key,
 		Ident:         ident,
@@ -115,6 +103,20 @@ func (s *TokenService) Exchange(ctx context.Context, params ExchangeTokenParams)
 		Issuer:        s.Issuer,
 		Scope:         authCode.Scope,
 		ExpiryMinutes: s.AccessTokenExpiry,
+	})
+	if err != nil {
+		return nil, ErrServerError
+	}
+
+	idToken, err := oidc.NewIdToken(oidc.IdTokenParams{
+		Key:           key,
+		Ident:         ident,
+		ClientId:      params.ClientId,
+		Issuer:        s.Issuer,
+		Nonce:         authCode.Nonce,
+		ExpiryMinutes: s.TokenExpiry,
+		AuthTime:      authCode.AuthTime,
+		AccessToken:   string(accessToken),
 	})
 	if err != nil {
 		return nil, ErrServerError
