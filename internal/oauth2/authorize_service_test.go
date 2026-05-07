@@ -260,13 +260,9 @@ func setupOAuth2Module(t *testing.T) *oauth2Module {
 	assert.NoError(t, err)
 
 	authorizeService := &AuthorizeService{
-		IdentityStore: identityStore,
-		ClientStore:   clientRepository,
-		CodeStore:     authCodeRepository,
-		KeyService:    keyService,
-		Issuer:        "https://test.issuer.com",
-		TokenExpiry:   5,
-		CodeExpiry:    5,
+		ClientStore: clientRepository,
+		CodeStore:   authCodeRepository,
+		CodeExpiry:  5,
 	}
 
 	authService := &authentication.Service{
@@ -400,29 +396,6 @@ func TestAuthorizeServiceGenerateCodeWithPKCEDefaultsMethod(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", stored.CodeChallenge)
 	assert.Equal(t, "S256", stored.CodeChallengeMethod)
-}
-
-func TestAuthorizeServiceAuthorizeHappyPath(t *testing.T) {
-	module := setupOAuth2Module(t)
-
-	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
-	assert.NoError(t, err)
-
-	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
-		OwnerId:     string(ident.Id),
-		Name:        "test-app",
-		Domain:      "example.com",
-		RedirectURI: "https://example.com/callback",
-	})
-	assert.NoError(t, err)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result, err := module.authorizeService.Authorize(ctx, ident.Id, string(clientResult.Client.Id))
-	assert.NoError(t, err)
-	assert.NotEmpty(t, result.IDToken)
-	assert.NotNil(t, result)
 }
 
 func TestValidateClientRedirectUnregisteredClient(t *testing.T) {
