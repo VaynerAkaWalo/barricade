@@ -39,6 +39,7 @@ type ClientHttpHandler struct {
 func (h *ClientHttpHandler) RegisterRoutes(router *xhttp.Router) {
 	router.RegisterHandler("POST /v1/oauth2/clients", h.Register)
 	router.RegisterHandler("GET /v1/oauth2/clients", h.List)
+	router.RegisterHandler("DELETE /v1/oauth2/clients/{id}", h.Delete)
 }
 
 func (h *ClientHttpHandler) Register(w http.ResponseWriter, r *http.Request) error {
@@ -69,6 +70,21 @@ func (h *ClientHttpHandler) Register(w http.ResponseWriter, r *http.Request) err
 		ClientId:     string(result.Client.Id),
 		ClientSecret: string(result.ClientSecret),
 	})
+}
+
+func (h *ClientHttpHandler) Delete(w http.ResponseWriter, r *http.Request) error {
+	ownerId, ok := r.Context().Value(xhttp.UserId).(string)
+	if !ok || ownerId == "" {
+		return xhttp.NewError("unauthorized", http.StatusUnauthorized)
+	}
+
+	id := ClientId(r.PathValue("id"))
+	err := h.ClientService.Delete(r.Context(), ownerId, id)
+	if err != nil {
+		return mapClientError(r.Context(), err)
+	}
+
+	return xhttp.WriteResponse(w, http.StatusNoContent, nil)
 }
 
 func (h *ClientHttpHandler) List(w http.ResponseWriter, r *http.Request) error {
@@ -119,6 +135,8 @@ func mapClientError(ctx context.Context, err error) error {
 		return xhttp.NewError("redirectURI domain does not match client domain", http.StatusBadRequest)
 	case errors.Is(err, ErrClientNotFound):
 		return xhttp.NewError("client not found", http.StatusNotFound)
+	case errors.Is(err, ErrClientOwnerMismatch):
+		return xhttp.NewError("unauthorized", http.StatusForbidden)
 	default:
 		slog.ErrorContext(ctx, "client service error", "error", err)
 		return xhttp.NewError("unable to register client", http.StatusInternalServerError)

@@ -6,6 +6,7 @@ type ClientRepository interface {
 	Save(ctx context.Context, client *Client) error
 	FindById(ctx context.Context, id ClientId) (*Client, error)
 	FindAll(ctx context.Context) ([]*Client, error)
+	Delete(ctx context.Context, id ClientId) error
 }
 
 type RegisterClientParams struct {
@@ -48,4 +49,17 @@ func (s *ClientService) FindById(ctx context.Context, id ClientId) (*Client, err
 
 func (s *ClientService) FindAll(ctx context.Context) ([]*Client, error) {
 	return s.Repo.FindAll(ctx)
+}
+
+func (s *ClientService) Delete(ctx context.Context, ownerId string, id ClientId) error {
+	client, err := s.Repo.FindById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if client.OwnerId != ownerId {
+		return ErrClientOwnerMismatch
+	}
+
+	return s.Repo.Delete(ctx, id)
 }
