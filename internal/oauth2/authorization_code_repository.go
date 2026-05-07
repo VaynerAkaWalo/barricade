@@ -20,6 +20,8 @@ type authCodeDDB struct {
 	ClientId            string `dynamodbav:"clientId"`
 	RedirectURI         string `dynamodbav:"redirectURI"`
 	Scope               string `dynamodbav:"scope"`
+	Nonce               string `dynamodbav:"nonce,omitempty"`
+	State               string `dynamodbav:"state,omitempty"`
 	CodeChallenge       string `dynamodbav:"codeChallenge,omitempty"`
 	CodeChallengeMethod string `dynamodbav:"codeChallengeMethod,omitempty"`
 	CreatedAt           int64  `dynamodbav:"createdAt"`
@@ -55,6 +57,8 @@ func (r *DynamoDBAuthorizationCodeRepository) Save(ctx context.Context, code *Au
 		ClientId:            code.ClientId,
 		RedirectURI:         code.RedirectURI,
 		Scope:               code.Scope,
+		Nonce:               code.Nonce,
+		State:               code.State,
 		CodeChallenge:       code.CodeChallenge,
 		CodeChallengeMethod: code.CodeChallengeMethod,
 		CreatedAt:           code.CreatedAt,
@@ -104,6 +108,8 @@ func (r *DynamoDBAuthorizationCodeRepository) FindByCode(ctx context.Context, co
 		IdentityId:          dbCode.SecondaryLookup,
 		RedirectURI:         dbCode.RedirectURI,
 		Scope:               dbCode.Scope,
+		Nonce:               dbCode.Nonce,
+		State:               dbCode.State,
 		CodeChallenge:       dbCode.CodeChallenge,
 		CodeChallengeMethod: dbCode.CodeChallengeMethod,
 		CreatedAt:           dbCode.CreatedAt,

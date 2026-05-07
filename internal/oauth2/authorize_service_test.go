@@ -398,6 +398,39 @@ func TestAuthorizeServiceGenerateCodeWithPKCEDefaultsMethod(t *testing.T) {
 	assert.Equal(t, "S256", stored.CodeChallengeMethod)
 }
 
+func TestAuthorizeServiceGenerateCodeWithStateAndNonce(t *testing.T) {
+	module := setupOAuth2Module(t)
+
+	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
+	assert.NoError(t, err)
+
+	clientResult, err := module.clientService.Register(context.Background(), RegisterClientParams{
+		OwnerId:     string(ident.Id),
+		Name:        "test-app",
+		Domain:      "example.com",
+		RedirectURI: "https://example.com/callback",
+	})
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	code, err := module.authorizeService.GenerateCode(ctx, ident.Id, AuthorizationParams{
+		ClientId:    string(clientResult.Client.Id),
+		RedirectURI: "https://example.com/callback",
+		Scope:       "openid",
+		State:       "test-state-value",
+		Nonce:       "test-nonce-value",
+	})
+	assert.NoError(t, err)
+	assert.NotEmpty(t, code)
+
+	stored, err := module.authCodeRepository.FindByCode(ctx, code)
+	assert.NoError(t, err)
+	assert.Equal(t, "test-state-value", stored.State)
+	assert.Equal(t, "test-nonce-value", stored.Nonce)
+}
+
 func TestValidateClientRedirectUnregisteredClient(t *testing.T) {
 	module := setupOAuth2Module(t)
 

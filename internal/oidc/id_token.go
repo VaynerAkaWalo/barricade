@@ -17,6 +17,7 @@ type (
 		Ident         *identity.Identity
 		ClientId      string
 		Issuer        string
+		Nonce         string
 		ExpiryMinutes int
 	}
 )
@@ -36,6 +37,10 @@ func NewIdToken(params IdTokenParams) (IdToken, error) {
 		"aud": params.ClientId,
 		"exp": exp.Unix(),
 		"iat": now.Unix(),
+	}
+
+	if params.Nonce != "" {
+		claims["nonce"] = params.Nonce
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
