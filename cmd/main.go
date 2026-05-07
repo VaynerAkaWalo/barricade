@@ -120,10 +120,14 @@ func main() {
 		Service: &tokenService,
 	}
 
-	userinfoHandler := oauth2.UserinfoHandler{
+	userinfoService := oauth2.UserinfoService{
 		KeyService:    keyService,
 		IdentityStore: identityRepository,
 		Issuer:        cfg.IssuerURL,
+	}
+
+	userinfoHandler := oauth2.UserinfoHandler{
+		Service: &userinfoService,
 	}
 
 	authenticator := xhttp.NewAuthenticator(

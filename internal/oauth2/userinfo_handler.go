@@ -1,14 +1,11 @@
 package oauth2
 
 import (
-	"barricade/internal/identity"
-	"barricade/internal/keys"
-	"fmt"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/VaynerAkaWalo/go-toolkit/xhttp"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 type userinfoResponse struct {
@@ -17,9 +14,7 @@ type userinfoResponse struct {
 }
 
 type UserinfoHandler struct {
-	KeyService    *keys.Service
-	IdentityStore IdentityRepository
-	Issuer        string
+	Service *UserinfoService
 }
 
 func (h *UserinfoHandler) RegisterRoutes(router *xhttp.Router) {
@@ -35,68 +30,32 @@ func (h *UserinfoHandler) Userinfo(w http.ResponseWriter, r *http.Request) error
 		return xhttp.NewError("invalid_token", http.StatusUnauthorized)
 	}
 
-	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	accessToken := strings.TrimPrefix(authHeader, "Bearer ")
 
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-
-		kid, ok := token.Header["kid"].(string)
-		if !ok {
-			return nil, fmt.Errorf("missing kid")
-		}
-
-		key, err := h.KeyService.GetKey(ctx, keys.KeyId(kid))
-		if err != nil {
-			return nil, fmt.Errorf("key not found: %w", err)
-		}
-
-		return key.RSAPublicKey()
-	})
+	result, err := h.Service.GetUserinfo(ctx, accessToken)
 	if err != nil {
-		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="access token is invalid or expired"`)
-		return xhttp.NewError("invalid_token", http.StatusUnauthorized)
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="access token is invalid"`)
-		return xhttp.NewError("invalid_token", http.StatusUnauthorized)
-	}
-
-	sub, ok := claims["sub"].(string)
-	if !ok || sub == "" {
-		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="access token missing subject"`)
-		return xhttp.NewError("invalid_token", http.StatusUnauthorized)
-	}
-
-	issuer, _ := claims["iss"].(string)
-	if issuer != h.Issuer {
-		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="access token issuer mismatch"`)
-		return xhttp.NewError("invalid_token", http.StatusUnauthorized)
-	}
-
-	scope, _ := claims["scope"].(string)
-
-	if !strings.Contains(scope, "openid") {
-		w.Header().Set("WWW-Authenticate", `Bearer error="insufficient_scope", scope="openid"`)
-		return xhttp.NewError("insufficient_scope", http.StatusForbidden)
-	}
-
-	ident, err := h.IdentityStore.FindById(ctx, identity.Id(sub))
-	if err != nil {
-		w.Header().Set("WWW-Authenticate", `Bearer error="invalid_token", error_description="identity not found"`)
-		return xhttp.NewError("invalid_token", http.StatusUnauthorized)
+		code, status := mapUserinfoError(err)
+		if desc := errorDescription(err); desc != "" {
+			w.Header().Set("WWW-Authenticate", `Bearer error="`+code+`", error_description="`+desc+`"`)
+		} else {
+			w.Header().Set("WWW-Authenticate", userinfoWWWAuthenticate(code))
+		}
+		return xhttp.NewError(code, status)
 	}
 
 	resp := userinfoResponse{
-		Sub: string(ident.Id),
-	}
-
-	if strings.Contains(scope, "profile") {
-		resp.Name = ident.Name
+		Sub:  result.Sub,
+		Name: result.Name,
 	}
 
 	return xhttp.WriteResponse(w, http.StatusOK, resp)
+}
+
+func errorDescription(err error) string {
+	switch {
+	case errors.Is(err, ErrInsufficientScope):
+		return ""
+	default:
+		return "access token is invalid"
+	}
 }

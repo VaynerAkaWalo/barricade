@@ -27,4 +27,6 @@ var (
 	ErrInvalidCodeChallengeMethod      = errors.New("invalid code challenge method, only S256 is supported")
 	ErrInvalidCodeVerifier             = errors.New("invalid code verifier")
 	ErrMissingCodeVerifier             = errors.New("code verifier is required for PKCE authorization code")
+	ErrInvalidToken                    = errors.New("invalid token")
+	ErrInsufficientScope               = errors.New("insufficient scope")
 )

@@ -21,10 +21,14 @@ func setupUserinfoTest(t *testing.T) (*oauth2Module, *UserinfoHandler, identity.
 	ident, err := module.identityService.Register(context.Background(), TEST_NAME, TEST_SECRET)
 	assert.NoError(t, err)
 
-	handler := &UserinfoHandler{
+	service := &UserinfoService{
 		KeyService:    module.keyService,
 		IdentityStore: module.identityRepository,
 		Issuer:        "https://test.issuer.com",
+	}
+
+	handler := &UserinfoHandler{
+		Service: service,
 	}
 
 	return module, handler, *ident
