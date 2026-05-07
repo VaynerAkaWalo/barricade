@@ -3,8 +3,10 @@ package identity
 import (
 	"context"
 	"fmt"
+	"hash/crc32"
 	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -13,21 +15,30 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+const identityShardCount = 4
+
 type identityDDB struct {
-	Id              string `dynamodbav:"id"`
-	Type            string `dynamodbav:"type"`
-	SecondaryLookup string `dynamodbav:"secondary-lookup"`
+	Id                string `dynamodbav:"id"`
+	Type              string `dynamodbav:"type"`
+	ShardedType       string `dynamodbav:"sharded-type"`
+	SecondaryLookup   string `dynamodbav:"secondary-lookup"`
 	SecondaryLookupSk string `dynamodbav:"secondary-lookup-sk"`
-	Name            string `dynamodbav:"name"`
-	SecretHash      []byte `dynamodbav:"secret"`
-	CreatedAt       int64  `dynamodbav:"createdAt"`
-	UpdatedAt       int64  `dynamodbav:"updatedAt"`
+	Name              string `dynamodbav:"name"`
+	SecretHash        []byte `dynamodbav:"secret"`
+	CreatedAt         int64  `dynamodbav:"createdAt"`
+	UpdatedAt         int64  `dynamodbav:"updatedAt"`
+}
+
+func computeIdentityShard(id Id) string {
+	sum := crc32.ChecksumIEEE([]byte(id))
+	return "identity#" + strconv.Itoa(int(sum)%identityShardCount)
 }
 
 func convertToDB(identity *Identity) *identityDDB {
 	return &identityDDB{
 		Id:                string(identity.Id),
 		Type:              "identity",
+		ShardedType:       computeIdentityShard(identity.Id),
 		SecondaryLookup:   identity.Name,
 		SecondaryLookupSk: "identity",
 		Name:              identity.Name,
@@ -44,9 +55,10 @@ func key(id Id) map[string]types.AttributeValue {
 }
 
 type DynamoDBIdentityRepository struct {
-	Client                 *dynamodb.Client
-	Table                  *string
-	SecondaryLookupIndex   *string
+	Client               *dynamodb.Client
+	Table                *string
+	SecondaryLookupIndex *string
+	ShardedTypeIndex     *string
 }
 
 func NewIdentityRepository(cfg aws.Config) *DynamoDBIdentityRepository {
@@ -54,6 +66,7 @@ func NewIdentityRepository(cfg aws.Config) *DynamoDBIdentityRepository {
 		Client:               dynamodb.NewFromConfig(cfg),
 		Table:                aws.String(os.Getenv("ENTITIES_TABLE")),
 		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
+		ShardedTypeIndex:     aws.String("sharded-type-index"),
 	}
 }
 
@@ -106,6 +119,48 @@ func (r *DynamoDBIdentityRepository) FindById(ctx context.Context, id Id) (*Iden
 	}
 
 	return entity, nil
+}
+
+func (r *DynamoDBIdentityRepository) FindAll(ctx context.Context) ([]*Identity, error) {
+	var result []*Identity
+
+	for i := 0; i < identityShardCount; i++ {
+		shard := "identity#" + strconv.Itoa(i)
+		keyEx := expression.Key("sharded-type").Equal(expression.Value(shard))
+		expr, err := expression.NewBuilder().WithKeyCondition(keyEx).Build()
+		if err != nil {
+			return nil, err
+		}
+
+		output, err := r.Client.Query(ctx, &dynamodb.QueryInput{
+			TableName:                 r.Table,
+			IndexName:                 r.ShardedTypeIndex,
+			KeyConditionExpression:    expr.KeyCondition(),
+			ExpressionAttributeNames:  expr.Names(),
+			ExpressionAttributeValues: expr.Values(),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, item := range output.Items {
+			var dbEntity identityDDB
+			err = attributevalue.UnmarshalMap(item, &dbEntity)
+			if err != nil {
+				return nil, err
+			}
+
+			result = append(result, &Identity{
+				Id:         Id(dbEntity.Id),
+				Name:       dbEntity.Name,
+				SecretHash: dbEntity.SecretHash,
+				CreatedAt:  dbEntity.CreatedAt,
+				UpdatedAt:  dbEntity.UpdatedAt,
+			})
+		}
+	}
+
+	return result, nil
 }
 
 func (r *DynamoDBIdentityRepository) FindByName(ctx context.Context, name string) (*Identity, error) {

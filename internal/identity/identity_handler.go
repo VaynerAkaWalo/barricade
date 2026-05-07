@@ -28,6 +28,7 @@ type HttpHandler struct {
 
 func (handler *HttpHandler) RegisterRoutes(router *xhttp.Router) {
 	router.RegisterHandler("POST /v1/register", handler.Register)
+	router.RegisterHandler("GET /v1/identities", handler.List)
 }
 
 func (handler *HttpHandler) Register(w http.ResponseWriter, r *http.Request) error {
@@ -51,6 +52,25 @@ func (handler *HttpHandler) Register(w http.ResponseWriter, r *http.Request) err
 	}
 
 	return xhttp.WriteResponse(w, http.StatusCreated, dto)
+}
+
+func (handler *HttpHandler) List(w http.ResponseWriter, r *http.Request) error {
+	entities, err := handler.Service.FindAll(r.Context())
+	if err != nil {
+		return mapIdentityError(r.Context(), err)
+	}
+
+	response := make([]IdentityResponse, 0, len(entities))
+	for _, entity := range entities {
+		response = append(response, IdentityResponse{
+			ID:        entity.Id,
+			Name:      entity.Name,
+			UpdatedAt: entity.UpdatedAt,
+			CreatedAt: entity.CreatedAt,
+		})
+	}
+
+	return xhttp.WriteResponse(w, http.StatusOK, response)
 }
 
 func mapIdentityError(ctx context.Context, err error) error {

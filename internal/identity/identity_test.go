@@ -88,6 +88,10 @@ func setupModule(t *testing.T) *identityModule {
 					AttributeName: aws.String("secondary-lookup-sk"),
 					AttributeType: types.ScalarAttributeTypeS,
 				},
+				{
+					AttributeName: aws.String("sharded-type"),
+					AttributeType: types.ScalarAttributeTypeS,
+				},
 			},
 			GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
 				{
@@ -106,6 +110,22 @@ func setupModule(t *testing.T) *identityModule {
 						ProjectionType: types.ProjectionTypeAll,
 					},
 				},
+				{
+					IndexName: aws.String("sharded-type-index"),
+					KeySchema: []types.KeySchemaElement{
+						{
+							AttributeName: aws.String("sharded-type"),
+							KeyType:       types.KeyTypeHash,
+						},
+						{
+							AttributeName: aws.String("id"),
+							KeyType:       types.KeyTypeRange,
+						},
+					},
+					Projection: &types.Projection{
+						ProjectionType: types.ProjectionTypeAll,
+					},
+				},
 			},
 			BillingMode: types.BillingModePayPerRequest,
 		})
@@ -116,6 +136,7 @@ func setupModule(t *testing.T) *identityModule {
 		Client:               client,
 		Table:                aws.String("test_identity_table"),
 		SecondaryLookupIndex: aws.String("secondary-lookup-index"),
+		ShardedTypeIndex:     aws.String("sharded-type-index"),
 	}
 
 	return &identityModule{
@@ -150,4 +171,21 @@ func TestRegisterHappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, res, entity)
+}
+
+func TestIdentityFindAllHappyPath(t *testing.T) {
+	module := setupModule(t)
+
+	_, err := module.service.Register(context.Background(), "user-1", TEST_SECRET)
+	assert.NoError(t, err)
+
+	_, err = module.service.Register(context.Background(), "user-2", TEST_SECRET)
+	assert.NoError(t, err)
+
+	_, err = module.service.Register(context.Background(), "user-3", TEST_SECRET)
+	assert.NoError(t, err)
+
+	identities, err := module.service.FindAll(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, identities, 3)
 }
