@@ -7,10 +7,15 @@ import (
 type Repository interface {
 	Save(ctx context.Context, identity *Identity) error
 	FindById(ctx context.Context, id Id) (*Identity, error)
+	FindAll(ctx context.Context) ([]*Identity, error)
 }
 
 type Service struct {
 	Repo Repository
+}
+
+func (s *Service) FindAll(ctx context.Context) ([]*Identity, error) {
+	return s.Repo.FindAll(ctx)
 }
 
 func (s *Service) Register(ctx context.Context, name string, secret string) (*Identity, error) {
