@@ -1,27 +1,29 @@
 .card {
-  background-color: var(--surface-card);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+	background-color: var(--surface-card);
+	border-radius: var(--radius-lg);
+	border: 1px solid var(--color-border);
+	transition:
+		box-shadow 0.2s ease,
+		border-color 0.2s ease;
 }
 
 .elevated {
-  box-shadow: var(--shadow-md);
-  border-color: transparent;
+	box-shadow: var(--shadow-md);
+	border-color: transparent;
 }
 
 .pad-none {
-  padding: 0;
+	padding: 0;
 }
 
 .pad-sm {
-  padding: var(--spacing-3);
+	padding: var(--spacing-3);
 }
 
 .pad-md {
-  padding: var(--spacing-6);
+	padding: var(--spacing-6);
 }
 
 .pad-lg {
-  padding: var(--spacing-8);
+	padding: var(--spacing-8);
 }

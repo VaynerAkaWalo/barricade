@@ -1,19 +1,19 @@
 .footer {
-  border-top: 1px solid var(--color-border);
-  background-color: var(--color-bg-secondary);
-  transition: background-color 0.2s ease;
+	border-top: 1px solid var(--color-border);
+	background-color: var(--color-bg-secondary);
+	transition: background-color 0.2s ease;
 }
 
 .inner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  max-width: var(--page-max-width);
-  margin: 0 auto;
-  padding: var(--spacing-6) var(--page-padding);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	max-width: var(--page-max-width);
+	margin: 0 auto;
+	padding: var(--spacing-6) var(--page-padding);
 }
 
 .copyright {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+	font-size: var(--font-size-sm);
+	color: var(--color-text-muted);
 }
