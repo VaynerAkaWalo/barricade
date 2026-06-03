@@ -1,33 +1,33 @@
 .form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-5);
+	display: flex;
+	flex-direction: column;
+	gap: var(--spacing-5);
 }
 
 .submit {
-  width: 100%;
+	width: 100%;
 }
 
 .links {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-1);
-  font-size: var(--font-size-sm);
-  flex-wrap: wrap;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-1);
+	font-size: var(--font-size-sm);
+	flex-wrap: wrap;
 }
 
 .text {
-  color: var(--color-text-secondary);
+	color: var(--color-text-secondary);
 }
 
 .link {
-  color: var(--color-accent);
-  font-weight: var(--font-weight-medium);
-  transition: color 0.15s ease;
+	color: var(--color-accent);
+	font-weight: var(--font-weight-medium);
+	transition: color 0.15s ease;
 }
 
 .link:hover {
-  color: var(--color-accent-hover);
-  text-decoration: underline;
+	color: var(--color-accent-hover);
+	text-decoration: underline;
 }
