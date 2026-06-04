@@ -1,16 +1,29 @@
-import { Elysia } from 'elysia'
-import { staticPlugin } from '@elysiajs/static'
+import { Database } from "bun:sqlite";
+import { staticPlugin } from "@elysiajs/static";
+import { Elysia } from "elysia";
+import { initalizeTables } from "./infra/db.migrator";
+import { userRoutes } from "./modules/user/user.routes";
+import { UserManagementService } from "./modules/user/user.service";
+
+const db: Database = new Database(":memory:");
+
+initalizeTables(db);
+
+const userService = new UserManagementService(db);
 
 const app = new Elysia()
-  .use(staticPlugin({
-    assets: "public/assets",
-    prefix: "/assets"
-  }
-  ))
+	.use(
+		staticPlugin({
+			assets: "public/assets",
+			prefix: "/assets",
+		}),
+	)
 
-  .get("/health", () => "ok")
+	.use(userRoutes(userService))
 
-  .get('*', () => Bun.file('./public/index.html'))
-  .listen(3000)
+	.get("/health", () => "ok")
 
-console.log(`Server started on port ${app.server?.port}`)
+	.get("*", () => Bun.file("./public/index.html"))
+	.listen(3000);
+
+console.log(`Server started on port ${app.server?.port}`);
