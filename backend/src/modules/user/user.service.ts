@@ -1,7 +1,6 @@
-import type { Database } from "bun:sqlite";
 import { randomUUIDv7 } from "bun";
 import type { User } from "./user.entity";
-import { UserManagementStore as UserStore } from "./user.store";
+import type { UserManagementStore as UserStore } from "./user.store";
 
 export interface CreateUserParams {
 	email: string;
@@ -11,8 +10,8 @@ export interface CreateUserParams {
 export class UserManagementService {
 	private readonly store: UserStore;
 
-	constructor(db: Database) {
-		this.store = new UserStore(db);
+	constructor(userStore: UserStore) {
+		this.store = userStore;
 	}
 
 	async createUser({ email, secret }: CreateUserParams): Promise<User> {
@@ -28,6 +27,6 @@ export class UserManagementService {
 
 		console.log(`Creating user ${user.id} with email ${email}`);
 
-		return this.store.CreateUser(user);
+		return this.store.createUser(user);
 	}
 }

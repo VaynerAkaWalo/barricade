@@ -2,14 +2,12 @@ import { Database } from "bun:sqlite";
 import { staticPlugin } from "@elysiajs/static";
 import { Elysia } from "elysia";
 import { initalizeTables } from "./infra/db.migrator";
+import { authNRoutes } from "./modules/authn/authn.routes";
 import { userRoutes } from "./modules/user/user.routes";
-import { UserManagementService } from "./modules/user/user.service";
 
 const db: Database = new Database(":memory:");
 
 initalizeTables(db);
-
-const userService = new UserManagementService(db);
 
 const app = new Elysia()
 	.use(
@@ -19,7 +17,9 @@ const app = new Elysia()
 		}),
 	)
 
-	.use(userRoutes(userService))
+	.use(userRoutes(db))
+
+	.use(authNRoutes(db))
 
 	.get("/health", () => "ok")
 

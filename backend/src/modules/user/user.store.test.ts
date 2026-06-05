@@ -34,7 +34,7 @@ describe("UserManagementStore", () => {
 		store = new UserManagementStore(db);
 
 		const input = makeUser();
-		const result = await store.CreateUser(input);
+		const result = await store.createUser(input);
 
 		expect(result).toEqual(input);
 	});
@@ -44,9 +44,9 @@ describe("UserManagementStore", () => {
 		store = new UserManagementStore(db);
 
 		const input = makeUser();
-		await store.CreateUser(input);
+		await store.createUser(input);
 
-		const found = await store.GetUser(input.id);
+		const found = await store.getUser(input.id);
 		expect(found).toBeDefined();
 		expect(found?.id).toBe(input.id);
 		expect(found?.email).toBe(input.email);
@@ -57,7 +57,29 @@ describe("UserManagementStore", () => {
 		db = createDb();
 		store = new UserManagementStore(db);
 
-		const found = await store.GetUser("non-existent-id");
+		const found = await store.getUser("non-existent-id");
+		expect(found).toBeNull();
+	});
+
+	it("getUserByEmail returns the user after creation", async () => {
+		db = createDb();
+		store = new UserManagementStore(db);
+
+		const input = makeUser();
+		await store.createUser(input);
+
+		const found = await store.getUserByEmail(input.email);
+		expect(found).toBeDefined();
+		expect(found?.id).toBe(input.id);
+		expect(found?.email).toBe(input.email);
+		expect(found?.secretHash).toBe(input.secretHash);
+	});
+
+	it("getUserByEmail returns null for non-existent email", async () => {
+		db = createDb();
+		store = new UserManagementStore(db);
+
+		const found = await store.getUserByEmail("doesnotexist@test.com");
 		expect(found).toBeNull();
 	});
 
@@ -65,10 +87,10 @@ describe("UserManagementStore", () => {
 		db = createDb();
 		store = new UserManagementStore(db);
 
-		await store.CreateUser(makeUser());
+		await store.createUser(makeUser());
 
 		expect(
-			store.CreateUser(
+			store.createUser(
 				makeUser({ id: "different-id", email: "alice@test.com" }),
 			),
 		).rejects.toThrow();

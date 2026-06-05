@@ -20,7 +20,7 @@ describe("UserManagementService", () => {
 
 	it("creates a user with all required fields", async () => {
 		db = createDb();
-		service = new UserManagementService(db);
+		service = new UserManagementService(new UserManagementStore(db));
 
 		const user = await service.createUser({
 			email: "bob@test.com",
@@ -36,7 +36,7 @@ describe("UserManagementService", () => {
 
 	it("hashes the provided secret", async () => {
 		db = createDb();
-		service = new UserManagementService(db);
+		service = new UserManagementService(new UserManagementStore(db));
 
 		const secret = "super-secret-123";
 		const user = await service.createUser({ email: "bob@test.com", secret });
@@ -47,7 +47,7 @@ describe("UserManagementService", () => {
 
 	it("persists the user in the database", async () => {
 		db = createDb();
-		service = new UserManagementService(db);
+		service = new UserManagementService(new UserManagementStore(db));
 
 		const user = await service.createUser({
 			email: "bob@test.com",
@@ -55,7 +55,7 @@ describe("UserManagementService", () => {
 		});
 
 		const store = new UserManagementStore(db);
-		const found = await store.GetUser(user.id);
+		const found = await store.getUser(user.id);
 		expect(found).toBeDefined();
 		expect(found?.id).toBe(user.id);
 		expect(found?.email).toBe(user.email);
