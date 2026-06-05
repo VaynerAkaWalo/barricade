@@ -39,6 +39,31 @@ describe("POST /users", () => {
 		expect(body.email).toBe("alice@test.com");
 	});
 
+	it("returns 409 for duplicate email", async () => {
+		({ db, app } = createApp());
+
+		await app.handle(
+			new Request("http://localhost/users", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ email: "alice@test.com", secret: "pass123" }),
+			}),
+		);
+
+		const res = await app.handle(
+			new Request("http://localhost/users", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ email: "alice@test.com", secret: "pass456" }),
+			}),
+		);
+
+		expect(res.status).toBe(409);
+
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.error).toBe("Email already exists");
+	});
+
 	it("returns 422 when email is missing", async () => {
 		({ db, app } = createApp());
 

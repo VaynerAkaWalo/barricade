@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "bun:test";
 import { initalizeTables } from "../../infra/db.migrator";
+import { DuplicateEmailError } from "./user.errors";
 import { UserManagementService } from "./user.service";
 import { UserManagementStore } from "./user.store";
 
@@ -43,6 +44,17 @@ describe("UserManagementService", () => {
 
 		expect(user.secretHash).toBeDefined();
 		expect(user.secretHash).not.toBe(secret);
+	});
+
+	it("throws DuplicateEmailError for duplicate email", async () => {
+		db = createDb();
+		service = new UserManagementService(new UserManagementStore(db));
+
+		await service.createUser({ email: "bob@test.com", secret: "my-password" });
+
+		expect(
+			service.createUser({ email: "bob@test.com", secret: "other-password" }),
+		).rejects.toThrow(DuplicateEmailError);
 	});
 
 	it("persists the user in the database", async () => {

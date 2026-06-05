@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { Elysia, t } from "elysia";
+import { DuplicateEmailError } from "./user.errors";
 import { userPlugin } from "./user.plugin";
 
 const UserDTO = t.Object({
@@ -7,22 +8,35 @@ const UserDTO = t.Object({
 	email: t.String(),
 });
 
-export const userRoutes = (db: Database) =>
-	new Elysia({ prefix: "/users" }).use(userPlugin(db)).post(
-		"/",
-		async ({ body, userService }) => {
-			const user = await userService.createUser({
-				email: body.email,
-				secret: body.secret,
-			});
+const ErrorResponse = t.Object({ error: t.String() });
 
-			return user;
-		},
-		{
-			body: t.Object({
-				email: t.String(),
-				secret: t.String(),
-			}),
-			response: UserDTO,
-		},
-	);
+export const userRoutes = (db: Database) =>
+	new Elysia({ prefix: "/users" })
+		.use(userPlugin(db))
+		.onError(({ error, set }) => {
+			if (error instanceof DuplicateEmailError) {
+				set.status = 409;
+				return { error: error.message };
+			}
+		})
+		.post(
+			"/",
+			async ({ body, userService }) => {
+				const user = await userService.createUser({
+					email: body.email,
+					secret: body.secret,
+				});
+
+				return user;
+			},
+			{
+				body: t.Object({
+					email: t.String(),
+					secret: t.String(),
+				}),
+				response: {
+					200: UserDTO,
+					409: ErrorResponse,
+				},
+			},
+		);

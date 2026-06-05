@@ -85,7 +85,7 @@ describe("POST /login", () => {
 		expect(res.status).toBe(422);
 	});
 
-	it("returns 500 for invalid credentials", async () => {
+	it("returns 401 for invalid credentials", async () => {
 		({ db, app } = createApp());
 		await seedUser(db);
 
@@ -97,7 +97,7 @@ describe("POST /login", () => {
 			}),
 		);
 
-		expect(res.status).toBe(500);
+		expect(res.status).toBe(401);
 	});
 });
 
@@ -137,17 +137,17 @@ describe("GET /authenticate", () => {
 		expect(body.expireAt).toBeDefined();
 	});
 
-	it("returns 500 for missing session cookie", async () => {
+	it("returns 401 for missing session cookie", async () => {
 		({ db, app } = createApp());
 
 		const res = await app.handle(
 			new Request("http://localhost/authenticate", { method: "GET" }),
 		);
 
-		expect(res.status).toBe(500);
+		expect(res.status).toBe(401);
 	});
 
-	it("returns 500 for expired session", async () => {
+	it("returns 401 for expired session", async () => {
 		({ db, app } = createApp());
 		await seedUser(db);
 
@@ -170,10 +170,10 @@ describe("GET /authenticate", () => {
 			}),
 		);
 
-		expect(res.status).toBe(500);
+		expect(res.status).toBe(401);
 	});
 
-	it("returns 500 for fingerprint mismatch", async () => {
+	it("returns 401 for fingerprint mismatch", async () => {
 		({ db, app } = createApp());
 		await seedUser(db);
 
@@ -196,6 +196,6 @@ describe("GET /authenticate", () => {
 			}),
 		);
 
-		expect(res.status).toBe(500);
+		expect(res.status).toBe(401);
 	});
 });
