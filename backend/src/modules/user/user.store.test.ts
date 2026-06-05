@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it } from "bun:test";
 import { initalizeTables } from "../../infra/db.migrator";
 import type { User } from "./user.entity";
+import { DuplicateEmailError } from "./user.errors";
 import { UserManagementStore } from "./user.store";
 
 function createDb(): Database {
@@ -83,7 +84,7 @@ describe("UserManagementStore", () => {
 		expect(found).toBeNull();
 	});
 
-	it("throws when inserting a duplicate email", async () => {
+	it("throws DuplicateEmailError when inserting a duplicate email", async () => {
 		db = createDb();
 		store = new UserManagementStore(db);
 
@@ -93,6 +94,6 @@ describe("UserManagementStore", () => {
 			store.createUser(
 				makeUser({ id: "different-id", email: "alice@test.com" }),
 			),
-		).rejects.toThrow();
+		).rejects.toThrow(DuplicateEmailError);
 	});
 });

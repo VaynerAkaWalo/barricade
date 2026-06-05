@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { User } from "./user.entity";
+import { DuplicateEmailError } from "./user.errors";
 
 export class UserManagementStore {
 	private readonly db: Database;
@@ -9,17 +10,24 @@ export class UserManagementStore {
 	}
 
 	async createUser(user: User): Promise<User> {
-		const insertQuery = this.db.query(
-			"INSERT INTO users (id, email, secret_hash) VALUES ($id, $email, $secretHash)",
-		);
+		try {
+			const insertQuery = this.db.query(
+				"INSERT INTO users (id, email, secret_hash) VALUES ($id, $email, $secretHash)",
+			);
 
-		insertQuery.run({
-			$id: user.id,
-			$email: user.email,
-			$secretHash: user.secretHash,
-		});
+			insertQuery.run({
+				$id: user.id,
+				$email: user.email,
+				$secretHash: user.secretHash,
+			});
 
-		return user;
+			return user;
+		} catch (e) {
+			if ((e as Error)?.message?.includes("UNIQUE constraint")) {
+				throw new DuplicateEmailError();
+			}
+			throw e;
+		}
 	}
 
 	async getUser(id: string): Promise<User | null> {
