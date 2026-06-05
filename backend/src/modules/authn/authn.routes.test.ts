@@ -8,6 +8,10 @@ import { SessionStore } from "./session.store";
 const TEST_EMAIL = "alice@test.com";
 const TEST_PASSWORD = "my-secret-password";
 
+function formBody(params: Record<string, string>): string {
+	return new URLSearchParams(params).toString();
+}
+
 async function seedUser(db: Database): Promise<string> {
 	const secretHash = await Bun.password.hash(TEST_PASSWORD);
 	db.query(
@@ -19,6 +23,20 @@ async function seedUser(db: Database): Promise<string> {
 		$now: new Date().toISOString(),
 	});
 	return "seed-user-id";
+}
+
+function loginViaForm(
+	app: ReturnType<typeof createApp>["app"],
+	email: string,
+	password: string,
+): Promise<Response> {
+	return app.handle(
+		new Request("http://localhost/login", {
+			method: "POST",
+			headers: { "content-type": "application/x-www-form-urlencoded" },
+			body: formBody({ email, password }),
+		}),
+	);
 }
 
 type TestApp = ReturnType<typeof createApp>;
@@ -38,19 +56,14 @@ describe("POST /login", () => {
 		db?.close();
 	});
 
-	it("returns 200 and sets session cookie for valid credentials", async () => {
+	it("redirects to /dashboard and sets session cookie for valid credentials", async () => {
 		({ db, app } = createApp());
 		await seedUser(db);
 
-		const res = await app.handle(
-			new Request("http://localhost/login", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ email: TEST_EMAIL, secret: TEST_PASSWORD }),
-			}),
-		);
+		const res = await loginViaForm(app, TEST_EMAIL, TEST_PASSWORD);
 
-		expect(res.status).toBe(200);
+		expect(res.status).toBe(302);
+		expect(res.headers.get("location")).toBe("/dashboard");
 		const setCookie = res.headers.get("set-cookie");
 		expect(setCookie).toBeDefined();
 		expect(setCookie).toContain("session=");
@@ -63,41 +76,37 @@ describe("POST /login", () => {
 		const res = await app.handle(
 			new Request("http://localhost/login", {
 				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ secret: TEST_PASSWORD }),
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+				body: formBody({ password: TEST_PASSWORD }),
 			}),
 		);
 
 		expect(res.status).toBe(422);
 	});
 
-	it("returns 422 when secret is missing", async () => {
+	it("returns 422 when password is missing", async () => {
 		({ db, app } = createApp());
 
 		const res = await app.handle(
 			new Request("http://localhost/login", {
 				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ email: TEST_EMAIL }),
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+				body: formBody({ email: TEST_EMAIL }),
 			}),
 		);
 
 		expect(res.status).toBe(422);
 	});
 
-	it("returns 401 for invalid credentials", async () => {
+	it("returns 401 with error message for invalid credentials", async () => {
 		({ db, app } = createApp());
 		await seedUser(db);
 
-		const res = await app.handle(
-			new Request("http://localhost/login", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ email: TEST_EMAIL, secret: "wrong-password" }),
-			}),
-		);
+		const res = await loginViaForm(app, TEST_EMAIL, "wrong-password");
 
 		expect(res.status).toBe(401);
+		const text = await res.text();
+		expect(text).toContain("Invalid email or password");
 	});
 });
 
@@ -109,18 +118,11 @@ describe("POST /logout", () => {
 		db?.close();
 	});
 
-	it("returns 200 and clears session cookie", async () => {
+	it("redirects to /login and clears session cookie", async () => {
 		({ db, app } = createApp());
 		await seedUser(db);
 
-		const loginRes = await app.handle(
-			new Request("http://localhost/login", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ email: TEST_EMAIL, secret: TEST_PASSWORD }),
-			}),
-		);
-
+		const loginRes = await loginViaForm(app, TEST_EMAIL, TEST_PASSWORD);
 		const cookie = loginRes.headers.get("set-cookie")!;
 
 		const res = await app.handle(
@@ -130,14 +132,14 @@ describe("POST /logout", () => {
 			}),
 		);
 
-		expect(res.status).toBe(200);
+		expect(res.status).toBe(302);
+		expect(res.headers.get("location")).toBe("/login");
 		const setCookie = res.headers.get("set-cookie");
 		expect(setCookie).toBeDefined();
-		expect(setCookie).toContain("session=");
 		expect(setCookie).toContain("Max-Age=0");
 	});
 
-	it("returns 200 without a session cookie", async () => {
+	it("redirects to /login without a session cookie", async () => {
 		({ db, app } = createApp());
 
 		const res = await app.handle(
@@ -146,7 +148,8 @@ describe("POST /logout", () => {
 			}),
 		);
 
-		expect(res.status).toBe(200);
+		expect(res.status).toBe(302);
+		expect(res.headers.get("location")).toBe("/login");
 	});
 });
 
@@ -162,14 +165,7 @@ describe("GET /authenticate", () => {
 		({ db, app } = createApp());
 		const userId = await seedUser(db);
 
-		const loginRes = await app.handle(
-			new Request("http://localhost/login", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ email: TEST_EMAIL, secret: TEST_PASSWORD }),
-			}),
-		);
-
+		const loginRes = await loginViaForm(app, TEST_EMAIL, TEST_PASSWORD);
 		const cookie = loginRes.headers.get("set-cookie")!;
 
 		const res = await app.handle(

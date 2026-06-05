@@ -2,14 +2,12 @@
   "name": "barricade",
   "private": true,
   "workspaces": [
-    "frontend",
     "backend"
   ],
   "scripts": {
-    "dev:front": "cd frontend && bun run dev",
-    "dev:back": "cd backend && bun --watch src/index.ts",
-    "dev": "bun x concurrently --names \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"bun run dev:back\" \"bun run dev:front\"",
-    "build:front": "cd frontend && bun run build"
+    "dev": "cd backend && bun --watch src/index.ts",
+    "start": "cd backend && bun src/index.ts",
+    "test": "bun test"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16"
