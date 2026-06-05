@@ -56,6 +56,18 @@ export const authNRoutes = (db: Database) =>
 				}),
 			},
 		)
+		.post(
+			"/logout",
+			({ cookie: { session } }) => {
+				session.value = "";
+				session.maxAge = 0;
+			},
+			{
+				cookie: t.Cookie({
+					session: t.Optional(t.String()),
+				}),
+			},
+		)
 		.get(
 			"/authenticate",
 			async ({ cookie: { session }, headers, authenticationService }) => {

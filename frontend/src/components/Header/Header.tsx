@@ -1,9 +1,17 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
+import { useAuth } from "../../auth/context";
 import { useTheme } from "../../theme/context";
 import styles from "./Header.module.css";
 
 export function Header() {
+	const router = useRouter();
 	const { theme, toggleTheme } = useTheme();
+	const { isAuthenticated, logout } = useAuth();
+
+	const handleLogout = async () => {
+		await logout();
+		router.navigate({ to: "/" });
+	};
 
 	return (
 		<header className={styles.header}>
@@ -12,9 +20,19 @@ export function Header() {
 					Barricade
 				</Link>
 				<div className={styles.spacer} />
+				{isAuthenticated && (
+					<button
+						onClick={handleLogout}
+						className={styles.logoutButton}
+						type="button"
+					>
+						Sign Out
+					</button>
+				)}
 				<button
 					onClick={toggleTheme}
 					className={styles.themeToggle}
+					type="button"
 					aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
 				>
 					{theme === "light" ? (

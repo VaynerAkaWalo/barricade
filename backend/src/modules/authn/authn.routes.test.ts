@@ -101,6 +101,55 @@ describe("POST /login", () => {
 	});
 });
 
+describe("POST /logout", () => {
+	let app: TestApp["app"];
+	let db: TestApp["db"];
+
+	afterEach(() => {
+		db?.close();
+	});
+
+	it("returns 200 and clears session cookie", async () => {
+		({ db, app } = createApp());
+		await seedUser(db);
+
+		const loginRes = await app.handle(
+			new Request("http://localhost/login", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ email: TEST_EMAIL, secret: TEST_PASSWORD }),
+			}),
+		);
+
+		const cookie = loginRes.headers.get("set-cookie")!;
+
+		const res = await app.handle(
+			new Request("http://localhost/logout", {
+				method: "POST",
+				headers: { cookie },
+			}),
+		);
+
+		expect(res.status).toBe(200);
+		const setCookie = res.headers.get("set-cookie");
+		expect(setCookie).toBeDefined();
+		expect(setCookie).toContain("session=");
+		expect(setCookie).toContain("Max-Age=0");
+	});
+
+	it("returns 200 without a session cookie", async () => {
+		({ db, app } = createApp());
+
+		const res = await app.handle(
+			new Request("http://localhost/logout", {
+				method: "POST",
+			}),
+		);
+
+		expect(res.status).toBe(200);
+	});
+});
+
 describe("GET /authenticate", () => {
 	let app: TestApp["app"];
 	let db: TestApp["db"];
