@@ -31,3 +31,9 @@
 .separator {
 	color: var(--color-text-muted);
 }
+
+.error {
+	font-size: var(--font-size-sm);
+	color: var(--color-error);
+	text-align: center;
+}

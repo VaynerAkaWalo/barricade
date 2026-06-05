@@ -31,3 +31,9 @@
 	color: var(--color-accent-hover);
 	text-decoration: underline;
 }
+
+.error {
+	font-size: var(--font-size-sm);
+	color: var(--color-error);
+	text-align: center;
+}
