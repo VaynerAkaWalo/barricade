@@ -62,7 +62,9 @@ export class AuthenticationService {
 			throw new SessionExpiredError();
 		}
 
-		if (Number(session.fingerPrint) !== Number(Bun.hash.wyhash(rawFingerPrint))) {
+		if (
+			Number(session.fingerPrint) !== Number(Bun.hash.wyhash(rawFingerPrint))
+		) {
 			throw new FingerPrintMismach();
 		}
 

@@ -6,6 +6,10 @@ import { userRoutes } from "./user.routes";
 
 type TestApp = ReturnType<typeof createApp>;
 
+function formBody(params: Record<string, string>): string {
+	return new URLSearchParams(params).toString();
+}
+
 function createApp() {
 	const db = new Database(":memory:");
 	initalizeTables(db);
@@ -13,7 +17,10 @@ function createApp() {
 	return { db, app };
 }
 
-describe("POST /users", () => {
+const TEST_EMAIL = "alice@test.com";
+const TEST_PASSWORD = "pass123";
+
+describe("POST /register", () => {
 	let app: TestApp["app"];
 	let db: TestApp["db"];
 
@@ -21,100 +28,70 @@ describe("POST /users", () => {
 		db.close();
 	});
 
-	it("creates a user and returns it", async () => {
+	it("creates a user and redirects to /login", async () => {
 		({ db, app } = createApp());
 
 		const res = await app.handle(
-			new Request("http://localhost/users", {
+			new Request("http://localhost/register", {
 				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ email: "alice@test.com", secret: "pass123" }),
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+				body: formBody({ email: TEST_EMAIL, password: TEST_PASSWORD }),
 			}),
 		);
 
-		expect(res.status).toBe(200);
-
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.id).toBeDefined();
-		expect(body.email).toBe("alice@test.com");
+		expect(res.status).toBe(302);
+		expect(res.headers.get("location")).toBe("/login");
 	});
 
 	it("returns 409 for duplicate email", async () => {
 		({ db, app } = createApp());
 
 		await app.handle(
-			new Request("http://localhost/users", {
+			new Request("http://localhost/register", {
 				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ email: "alice@test.com", secret: "pass123" }),
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+				body: formBody({ email: TEST_EMAIL, password: TEST_PASSWORD }),
 			}),
 		);
 
 		const res = await app.handle(
-			new Request("http://localhost/users", {
+			new Request("http://localhost/register", {
 				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ email: "alice@test.com", secret: "pass456" }),
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+				body: formBody({ email: TEST_EMAIL, password: "pass456" }),
 			}),
 		);
 
 		expect(res.status).toBe(409);
-
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.error).toBe("Email already exists");
+		const text = await res.text();
+		expect(text).toContain("An account with this email already exists");
 	});
 
 	it("returns 422 when email is missing", async () => {
 		({ db, app } = createApp());
 
 		const res = await app.handle(
-			new Request("http://localhost/users", {
+			new Request("http://localhost/register", {
 				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ secret: "pass123" }),
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+				body: formBody({ password: TEST_PASSWORD }),
 			}),
 		);
 
 		expect(res.status).toBe(422);
 	});
 
-	it("returns 422 when secret is missing", async () => {
+	it("returns 422 when password is missing", async () => {
 		({ db, app } = createApp());
 
 		const res = await app.handle(
-			new Request("http://localhost/users", {
+			new Request("http://localhost/register", {
 				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ email: "alice@test.com" }),
+				headers: { "content-type": "application/x-www-form-urlencoded" },
+				body: formBody({ email: TEST_EMAIL }),
 			}),
 		);
 
 		expect(res.status).toBe(422);
-	});
-
-	it("returns 422 for non-JSON body", async () => {
-		({ db, app } = createApp());
-
-		const res = await app.handle(
-			new Request("http://localhost/users", {
-				method: "POST",
-				headers: { "content-type": "text/plain" },
-				body: "not json",
-			}),
-		);
-
-		expect(res.status).toBe(422);
-	});
-});
-
-describe("GET /users", () => {
-	it("returns 404", async () => {
-		const { app } = createApp();
-
-		const res = await app.handle(
-			new Request("http://localhost/users", { method: "GET" }),
-		);
-
-		expect(res.status).toBe(404);
 	});
 });

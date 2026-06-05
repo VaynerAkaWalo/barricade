@@ -189,8 +189,8 @@ describe("authenticate", () => {
 			rawFingerPrint: "original-agent",
 		});
 
-		expect(
-			service.authenticate(session.id, "different-agent"),
-		).rejects.toThrow(FingerPrintMismach);
+		expect(service.authenticate(session.id, "different-agent")).rejects.toThrow(
+			FingerPrintMismach,
+		);
 	});
 });
