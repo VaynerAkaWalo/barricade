@@ -18,6 +18,18 @@ const tables: Table[] = [
     )
     `,
 	},
+	{
+		name: "sessions",
+		script: `
+     CREATE TABLE sessions (
+       id TEXT PRIMARY KEY,
+       owner_id TEXT KEY,
+       finger_print INTEGER,
+       created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+       expire_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     )
+     `,
+	},
 ];
 
 export const initalizeTables = (db: Database) => {

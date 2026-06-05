@@ -1,15 +1,16 @@
+import type { Database } from "bun:sqlite";
 import { Elysia, t } from "elysia";
-import type { UserManagementService } from "./user.service";
+import { userPlugin } from "./user.plugin";
 
 const UserDTO = t.Object({
 	id: t.String(),
 	email: t.String(),
 });
 
-export const userRoutes = (userService: UserManagementService) =>
-	new Elysia({ prefix: "/users" }).post(
+export const userRoutes = (db: Database) =>
+	new Elysia({ prefix: "/users" }).use(userPlugin(db)).post(
 		"/",
-		async ({ body }) => {
+		async ({ body, userService }) => {
 			const user = await userService.createUser({
 				email: body.email,
 				secret: body.secret,

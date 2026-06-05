@@ -3,15 +3,13 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { Elysia } from "elysia";
 import { initalizeTables } from "../../infra/db.migrator";
 import { userRoutes } from "./user.routes";
-import { UserManagementService } from "./user.service";
 
 type TestApp = ReturnType<typeof createApp>;
 
 function createApp() {
 	const db = new Database(":memory:");
 	initalizeTables(db);
-	const service = new UserManagementService(db);
-	const app = new Elysia().use(userRoutes(service));
+	const app = new Elysia().use(userRoutes(db));
 	return { db, app };
 }
 
