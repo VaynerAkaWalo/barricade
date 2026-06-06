@@ -123,7 +123,7 @@ describe("POST /logout", () => {
 		await seedUser(db);
 
 		const loginRes = await loginViaForm(app, TEST_EMAIL, TEST_PASSWORD);
-		const cookie = loginRes.headers.get("set-cookie")!;
+		const cookie = loginRes.headers.get("set-cookie") as string;
 
 		const res = await app.handle(
 			new Request("http://localhost/logout", {
@@ -166,7 +166,7 @@ describe("GET /authenticate", () => {
 		const userId = await seedUser(db);
 
 		const loginRes = await loginViaForm(app, TEST_EMAIL, TEST_PASSWORD);
-		const cookie = loginRes.headers.get("set-cookie")!;
+		const cookie = loginRes.headers.get("set-cookie") as string;
 
 		const res = await app.handle(
 			new Request("http://localhost/authenticate", {
