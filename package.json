@@ -1,15 +1,15 @@
 {
-  "name": "barricade",
-  "private": true,
-  "workspaces": [
-    "backend"
-  ],
-  "scripts": {
-    "dev": "cd backend && bun --watch src/index.ts",
-    "start": "cd backend && bun src/index.ts",
-    "test": "bun test"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "2.4.16"
-  }
+	"name": "barricade",
+	"private": true,
+	"workspaces": [
+		"backend"
+	],
+	"scripts": {
+		"dev": "cd backend && bun --watch src/index.ts",
+		"start": "cd backend && bun src/index.ts",
+		"test": "bun test"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.16"
+	}
 }
